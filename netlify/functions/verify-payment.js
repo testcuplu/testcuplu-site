@@ -8,6 +8,16 @@
 //
 // Suma și moneda așteptate (29 RON = 2900 bani) sunt verificate explicit,
 // ca să nu poată fi refolosit un id de la altă tranzacție/alt preț.
+//
+// IMPORTANT — cupoane de reducere (inclusiv 100%):
+// Pentru checkout sessions, verificăm `amount_subtotal` (prețul REAL al produsului,
+// înainte de orice cupon), nu `amount_total` (suma finală, după reducere).
+// Asta înseamnă: dacă produsul din catalogul Stripe costă cu adevărat 29 RON,
+// verificarea trece — indiferent dacă a fost plătit integral sau cu cupon de
+// reducere (0%, 50%, 100%). Cineva NU poate falsifica asta din browser, pentru
+// că amount_subtotal vine din obiectul Price definit de tine în Stripe, nu din
+// ce trimite clientul. Rămâne o protecție anti-fraudă reală, doar mutată pe
+// prețul de listă, nu pe suma finală încasată.
 
 const EXPECTED_AMOUNT = 2900; // 29.00 RON, în bani (subunitatea Stripe)
 const EXPECTED_CURRENCY = 'ron';
@@ -78,8 +88,10 @@ exports.handler = async function (event) {
 
       const session = await stripeResp.json();
 
-      const isPaid = session.payment_status === 'paid';
-      const isCorrectAmount = session.amount_total === EXPECTED_AMOUNT;
+      const isPaid = session.payment_status === 'paid' || session.payment_status === 'no_payment_required';
+      // amount_subtotal = prețul real al produsului, ÎNAINTE de orice cupon/reducere.
+      // Rămâne 2900 chiar și cu un cupon de 100% off (când amount_total devine 0).
+      const isCorrectAmount = session.amount_subtotal === EXPECTED_AMOUNT;
       const isCorrectCurrency = (session.currency || '').toLowerCase() === EXPECTED_CURRENCY;
 
       if (isPaid && isCorrectAmount && isCorrectCurrency) {
