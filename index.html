@@ -1,3 +1,4 @@
+<!-- VERSIUNE: v62_2 · 26 iulie 2026 · fix-uri incluse: link Stripe live, "secluded cabin", console.log șterse, Plausible real, fix traducere beforeLbl1/2/3, Coming Soon dezactivat, fix H (contradicție cont necesar/fără cont), fix B (text zonă variabil pe scor) -->
 <!DOCTYPE html>
 <html lang="ro">
 <head>
@@ -926,7 +927,7 @@ input:focus{outline:none;border-color:#db2777;}
   </button>
 
   <div class="v7-reassure v7-fade-6" id="v7-reassure">
-    <b>Zona 1 gratuită</b><span class="v7-sep">·</span>Cont necesar doar pentru salvare<span class="v7-sep">·</span>Premium <b>29 RON</b><br>
+    <b>Zona 1 gratuită</b><span class="v7-sep">·</span>Fără cont, doar email pentru salvare<span class="v7-sep">·</span>Premium <b>29 RON</b><br>
     Datele rămân pe dispozitivul tău
   </div>
 </main>
@@ -2416,6 +2417,9 @@ ro: {
   beforeTitle: "Ați terminat amândoi",
   beforeText: "Urmează <strong>3 scoruri</strong> \u2014 conexiunea voastră, stilul sexual și zona de explorare.<br>Nu e verdict — e invitație la discuție.",
   beforeBtn: "Dezvăluie compatibilitatea voastră",
+  beforeLbl1: "Relație",
+  beforeLbl2: "Stil sexual",
+  beforeLbl3: "Explorare",
   resultsTitle: "Rezultatele voastre",
   yourScores: "SCORURILE VOASTRE",
   coreLbl: "Relație &<br>Conexiune", styleLbl: "Stil<br>Sexual", discLbl: "Explorare<br>& Aventură",
@@ -2493,6 +2497,9 @@ en: {
   beforeTitle: "You're both done!",
   beforeText: "Coming up: <strong>3 scores</strong> \u2014 your connection, sexual style, and exploration zone.<br>Not a verdict — an invitation to talk.",
   beforeBtn: "Reveal your compatibility",
+  beforeLbl1: "Relationship",
+  beforeLbl2: "Sexual style",
+  beforeLbl3: "Exploration",
   resultsTitle: "Your Results",
   yourScores: "YOUR SCORES",
   coreLbl: "Relationship &<br>Connection", styleLbl: "Sexual<br>Style", discLbl: "Exploration<br>& Adventure",
@@ -2896,8 +2903,8 @@ function renderAgeGate(){
   var rs = document.getElementById('v7-reassure');
   if(rs){
     rs.innerHTML = isEN
-      ? '<b>Zone 1 free</b><span class="v7-sep">·</span>Account only needed to save<span class="v7-sep">·</span>Premium <b>29 RON</b><br>Your data stays on your device'
-      : '<b>Zona 1 gratuită</b><span class="v7-sep">·</span>Cont necesar doar pentru salvare<span class="v7-sep">·</span>Premium <b>29 RON</b><br>Datele rămân pe dispozitivul tău';
+      ? '<b>Zone 1 free</b><span class="v7-sep">·</span>No account, just email to save<span class="v7-sep">·</span>Premium <b>29 RON</b><br>Your data stays on your device'
+      : '<b>Zona 1 gratuită</b><span class="v7-sep">·</span>Fără cont, doar email pentru salvare<span class="v7-sep">·</span>Premium <b>29 RON</b><br>Datele rămân pe dispozitivul tău';
   }
 
   // V7 Footer
@@ -3058,6 +3065,9 @@ function toggleTrConfirm(){
 function renderBefore(){
   var bt = document.getElementById('before-title'); if(bt) bt.textContent = t('beforeTitle');
   var bp = document.getElementById('before-text'); if(bp) bp.innerHTML = t('beforeText');
+  var bl1 = document.getElementById('before-lbl1'); if(bl1) bl1.textContent = t('beforeLbl1');
+  var bl2 = document.getElementById('before-lbl2'); if(bl2) bl2.textContent = t('beforeLbl2');
+  var bl3 = document.getElementById('before-lbl3'); if(bl3) bl3.textContent = t('beforeLbl3');
   var bb = document.getElementById('before-btn');
   if(bb) bb.textContent = LANG==='en'?'Reveal your compatibility':'Dezvăluie compatibilitatea voastră';
   var c1=document.getElementById('before-c1'); if(c1) c1.textContent='?%';
@@ -3290,6 +3300,10 @@ function modalConfirm(){
 }
 document.addEventListener('DOMContentLoaded', function(){
   // ═══ COMING SOON / DEV MODE LOGIC ════════════════════════════
+  // Comutator central: false = Coming Soon dezactivat, site live pentru toată lumea.
+  // true = revine la comportamentul vechi (Coming Soon activ pentru vizitatori publici).
+  var COMING_SOON_ENABLED = false;
+
   // Check URL params for dev mode toggle
   var urlParams = new URLSearchParams(window.location.search);
   var devParam = urlParams.get('dev');
@@ -3315,7 +3329,7 @@ document.addEventListener('DOMContentLoaded', function(){
   // Coming Soon is also bypassed for the Netlify form-name detection (POST submissions)
   var isFormSubmit = urlParams.get('form-name') !== null;
 
-  if(!isDev && !hasStripeToken && !isFormSubmit){
+  if(COMING_SOON_ENABLED && !isDev && !hasStripeToken && !isFormSubmit){
     // PUBLIC VISITOR → show Coming Soon, hide everything else
     var allScreens = document.querySelectorAll('.screen');
     for(var i=0;i<allScreens.length;i++){ allScreens[i].classList.remove('active','fade'); }
@@ -4570,9 +4584,20 @@ function renderPaidZones(catsDiv, res, isEN, data){
     var zoneIntroBorder=cls==='style'?'rgba(147,51,234,0.18)':'rgba(245,158,11,0.18)';
     var tipBg=cls==='style'?'rgba(147,51,234,0.1)':'rgba(245,158,11,0.1)';
     var tipBorder=cls==='style'?'rgba(147,51,234,0.2)':'rgba(245,158,11,0.2)';
-    var zoneIntroText=isEN
-      ?(cls==='style'?'Your sexual style is <strong style="color:'+zoneColor+'">well aligned</strong>. You share a solid foundation of common preferences — and the small differences are exactly what make things interesting.':'The exploration zone shows <strong style="color:'+zoneColor+'">curiosity and openness</strong>. There are some differences in pace — one of you is a bit more adventurous in certain areas. That\'s not a disagreement, it\'s an invitation for conversation.')
-      :(cls==='style'?'Stilul vostru sexual este <strong style="color:'+zoneColor+'">bine aliniat</strong>. Există o bază solidă de preferințe comune — iar diferențele mici sunt exact ce fac lucrurile interesante.':'Zona de explorare arată <strong style="color:'+zoneColor+'">curiozitate și deschidere</strong>. Există câteva diferențe de ritm — unul dintre voi e ceva mai aventuros în anumite zone. Asta nu e un dezacord, e o invitație la conversație.');
+    var zoneIntroText;
+    if(avgScore>=75){
+      zoneIntroText=isEN
+        ?(cls==='style'?'Your sexual style is <strong style="color:'+zoneColor+'">well aligned</strong>. You share a solid foundation of common preferences — and the small differences are exactly what make things interesting.':'The exploration zone shows <strong style="color:'+zoneColor+'">curiosity and openness</strong>. There are some differences in pace — one of you is a bit more adventurous in certain areas. That\'s not a disagreement, it\'s an invitation for conversation.')
+        :(cls==='style'?'Stilul vostru sexual este <strong style="color:'+zoneColor+'">bine aliniat</strong>. Există o bază solidă de preferințe comune — iar diferențele mici sunt exact ce fac lucrurile interesante.':'Zona de explorare arată <strong style="color:'+zoneColor+'">curiozitate și deschidere</strong>. Există câteva diferențe de ritm — unul dintre voi e ceva mai aventuros în anumite zone. Asta nu e un dezacord, e o invitație la conversație.');
+    } else if(avgScore>=55){
+      zoneIntroText=isEN
+        ?(cls==='style'?'Your sexual style shows <strong style="color:'+zoneColor+'">a mix of overlap and difference</strong>. You agree on some things and see others differently — a normal starting point for a conversation about what each of you actually wants.':'This zone shows <strong style="color:'+zoneColor+'">moderate alignment</strong>. There are real differences in pace and openness worth talking through, alongside things you already agree on.')
+        :(cls==='style'?'Stilul vostru sexual arată <strong style="color:'+zoneColor+'">o combinație de puncte comune și diferențe</strong>. Sunteți de acord pe unele lucruri și vedeți altele diferit — un punct de plecare normal pentru o discuție despre ce își dorește fiecare cu adevărat.':'Zona aceasta arată o <strong style="color:'+zoneColor+'">aliniere moderată</strong>. Există diferențe reale de ritm și deschidere care merită discutate, alături de lucruri pe care deja le împărtășiți.');
+    } else {
+      zoneIntroText=isEN
+        ?(cls==='style'?'Your sexual style shows <strong style="color:'+zoneColor+'">significant differences</strong> right now. That\'s not a verdict on the relationship — it\'s useful information about where an honest conversation could help the most.':'This zone shows <strong style="color:'+zoneColor+'">notable differences</strong> in pace and openness. Worth approaching gently, as a starting point for talking rather than a problem to fix overnight.')
+        :(cls==='style'?'Stilul vostru sexual arată <strong style="color:'+zoneColor+'">diferențe semnificative</strong> în acest moment. Nu e un verdict despre relație — e o informație utilă despre unde o discuție sinceră ar ajuta cel mai mult.':'Zona aceasta arată <strong style="color:'+zoneColor+'">diferențe notabile</strong> de ritm și deschidere. Merită abordată cu blândețe, ca punct de plecare pentru o discuție, nu ca o problemă de rezolvat peste noapte.');
+    }
 
     var headerHtml=
       '<div style="padding:28px 20px 14px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(255,255,255,0.06);">'+
