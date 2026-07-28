@@ -1,4 +1,4 @@
-<!-- VERSIUNE: v62_2 · 26 iulie 2026 · fix-uri incluse: link Stripe live, "secluded cabin", console.log șterse, Plausible real, fix traducere beforeLbl1/2/3, Coming Soon dezactivat, fix H (contradicție cont necesar/fără cont), fix B (text zonă variabil pe scor) -->
+<!-- VERSIUNE: v63 · 26 iulie 2026 · fix-uri: Stripe live, "secluded cabin", console.log șterse, Plausible, traducere labels, Coming Soon off, fix H (contradicție cont), fix B (text zonă pe scor), fix D (FAQ recovery reformulat), fix F (checkbox consimțământ email), fix E (state doar în localStorage, nu cookie — nu mai trimite răspunsuri la fiecare cerere). NOTĂ: fix A și fix C vin separat în v64. -->
 <!DOCTYPE html>
 <html lang="ro">
 <head>
@@ -1192,7 +1192,7 @@ input:focus{outline:none;border-color:#db2777;}
       </div>
       <div class="faq-item">
         <button class="faq-q" onclick="toggleFaq(this)" id="faq-q9"><span id="faq-q9-txt">Pot reaccesa rezultatele mai târziu?</span><span class="faq-q-arrow">▼</span></button>
-        <div class="faq-a" id="faq-a9-txt">Da. După plată, primiți automat un email cu un link de recuperare a rezultatelor, accesibil de pe orice dispozitiv. Linkul rămâne activ cât timp testcuplu.ro funcționează. Dacă pierdeți email-ul, puteți cere retrimiterea oricând din pagina cu rezultate, prin butonul „Retrimite linkul de acces". Pentru arhivă proprie, vă recomandăm să descărcați raportul ca PDF imediat după plată — astfel îl păstrați pe dispozitiv, independent de orice.</div>
+        <div class="faq-a" id="faq-a9-txt">Da, parțial. După plată, primiți automat un email cu un link care redeschide accesul Premium — dar linkul funcționează corect doar pe dispozitivul și browserul pe care ați completat testul, pentru că răspunsurile voastre rămân salvate exclusiv local, pe acel dispozitiv, nu pe serverul nostru. Pe alt dispozitiv, linkul confirmă plata, dar nu poate afișa răspunsurile care lipsesc de acolo. De aceea vă recomandăm ferm să descărcați raportul ca PDF imediat după plată — e singura copie care vă însoțește oriunde, indiferent de dispozitiv.</div>
       </div>
       <div class="faq-item">
         <button class="faq-q" onclick="toggleFaq(this)" id="faq-q10"><span id="faq-q10-txt">Pot primi banii înapoi?</span><span class="faq-q-arrow">▼</span></button>
@@ -1546,6 +1546,10 @@ input:focus{outline:none;border-color:#db2777;}
       </button>
       <div id="export-email-form" style="display:none;padding:12px;background:rgba(255,255,255,0.04);border-radius:12px;border:1px solid rgba(255,255,255,0.1);margin-bottom:10px;">
         <input type="email" id="export-email-input" placeholder="adresa@email.ro" style="width:100%;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px 14px;font-size:0.9rem;color:#fff;font-family:inherit;margin-bottom:10px;box-sizing:border-box;"/>
+        <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;cursor:pointer;font-size:0.74rem;color:rgba(255,255,255,0.6);line-height:1.4;">
+          <input type="checkbox" id="export-email-consent" style="margin-top:2px;flex-shrink:0;width:15px;height:15px;cursor:pointer;"/>
+          <span id="export-email-consent-txt">Sunt de acord ca răspunsurile noastre să fie trimise prin furnizorul nostru tehnic de email (Brevo, UE) către adresa de mai sus.</span>
+        </label>
         <button onclick="handleSendEmail()" id="export-email-btn" style="width:100%;background:#f43f5e;color:#fff;border:none;border-radius:10px;padding:13px;font-weight:900;font-size:0.9rem;cursor:pointer;font-family:inherit;">✉️ Trimite raportul</button>
       </div>
 
@@ -5751,10 +5755,12 @@ function confirmAndPay(e){
     };
     localStorage.setItem('compat_consent', JSON.stringify(consent));
   }catch(e){}
-  // Save state
+  // Save state — DOAR în localStorage. Nu mai folosim cookie pentru compat_state:
+  // cookie-ul se trimitea automat la server la fiecare cerere (path=/), expunând
+  // răspunsuri sensibile. localStorage rămâne pe dispozitiv și supraviețuiește
+  // redirect-ului spre Stripe și înapoi la fel de bine.
   try{
     var stateStr = JSON.stringify(S);
-    setCookie('compat_state', stateStr, 60);
     localStorage.setItem('compat_state', stateStr);
   }catch(e){}
   // Close modal first, then redirect (Safari iOS needs sync redirect for user-initiated nav)
@@ -5915,6 +5921,7 @@ function openExport(){
     var sd = document.getElementById('export-save-desc'); if(sd) sd.textContent = 'Report with scores and advice — direct download';
     var el = document.getElementById('export-email-label'); if(el) el.textContent = 'Send by email';
     var ed = document.getElementById('export-email-desc'); if(ed) ed.textContent = 'Full report delivered to your inbox';
+    var ect = document.getElementById('export-email-consent-txt'); if(ect) ect.textContent = 'I agree that our answers be sent through our technical email provider (Brevo, EU) to the address above.';
     var wl = document.getElementById('export-wa-label'); if(wl) wl.textContent = 'Share on WhatsApp';
     var wd = document.getElementById('export-wa-desc'); if(wd) wd.textContent = 'Send score and link on WhatsApp';
     var rl = document.getElementById('export-resend-label'); if(rl) rl.textContent = 'Resend access link';
@@ -5927,6 +5934,7 @@ function openExport(){
     var sdr = document.getElementById('export-save-desc'); if(sdr) sdr.textContent = 'Raport cu scoruri și advice — download direct';
     var elr = document.getElementById('export-email-label'); if(elr) elr.textContent = 'Trimite pe email';
     var edr = document.getElementById('export-email-desc'); if(edr) edr.textContent = 'Raportul complet ajunge în inbox-ul tău';
+    var ectr = document.getElementById('export-email-consent-txt'); if(ectr) ectr.textContent = 'Sunt de acord ca răspunsurile noastre să fie trimise prin furnizorul nostru tehnic de email (Brevo, UE) către adresa de mai sus.';
     var wlr = document.getElementById('export-wa-label'); if(wlr) wlr.textContent = 'Distribuie pe WhatsApp';
     var wdr = document.getElementById('export-wa-desc'); if(wdr) wdr.textContent = 'Trimite scorul și linkul pe WhatsApp';
     var rlr = document.getElementById('export-resend-label'); if(rlr) rlr.textContent = 'Retrimite linkul de acces';
@@ -6014,6 +6022,11 @@ function handleSendEmail(){
   var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   if(!email || !emailRe.test(email)){
     alert(isEN?'Please enter a valid email address.':'Introdu o adresă de email validă.');
+    return;
+  }
+  var consentBox = document.getElementById('export-email-consent');
+  if(!consentBox || !consentBox.checked){
+    alert(isEN?'Please check the consent box before sending the report.':'Bifează consimțământul înainte de a trimite raportul.');
     return;
   }
 
@@ -6940,7 +6953,7 @@ function renderHowFaqFooter(){
     [isEN?'Do we need an account?':'Avem nevoie de un cont?', isEN?'No account, no password, no registration. At the start of the test, we ask for one of your email addresses — the only identifying information we ask for. The email is used exclusively to send you the access code if you unlock Zones 2 and 3 (Premium). Without it, if you lose access after payment, we cannot resend the code. For Zone 1 (free), the email stays stored but we don\'t use it.':'Nu există cont, nu există parolă, nu există înregistrare. La începutul testului vă cerem adresa de email a unuia dintre voi \u2014 singura informație de identificare pe care o cerem. Emailul e folosit exclusiv pentru a vă trimite codul de acces dacă deblocați Zonele 2 și 3 (Premium). Fără el, dacă pierdeți accesul după plată, nu putem retrimite codul. Pentru Zona 1 (gratuită), emailul rămâne stocat dar nu îl folosim.'],
     [isEN?'What will we see in results?':'Ce vedem în rezultate?', isEN?'A shared report including: overall compatibility score, scores for the 25 categories (classified as well-aligned zones, partially aligned zones, zones to explore), visual comparison of your answers on each topic, plus conversation suggestions for the biggest gaps. The score reflects the alignment of answers across the 25 categories — a starting point, not a verdict. You view the report together on the same device.':'Un raport comun care include: scorul general de compatibilitate, scoruri pe cele 25 de categorii (clasificate ca zone bine aliniate, zone parțial aliniate, zone de explorare), comparație vizuală a răspunsurilor pe fiecare temă, plus sugestii de conversații pentru zonele cu cea mai mare distanță între voi. Scorul reflectă alinierea răspunsurilor pe cele 25 categorii \u2014 punct de plecare, nu verdict. Vedeți raportul împreună pe același dispozitiv.'],
     [isEN?'Is it free?':'Este gratuit?', isEN?'Zone 1 (Relationship & Connection — 6 categories: communication, values, shared vision and emotional connection) is completely free. Zones 2 (Sexual Style — 7 categories) and 3 (Exploration — 12 categories) unlock with a one-time payment of 29 RON — no subscription, no automatic renewals. Payment is processed securely via Stripe.':'Zona 1 (Relație & Conexiune \u2014 6 categorii: comunicare, valori, viziune comună și conexiune emoțională) este complet gratuită. Zonele 2 (Stil Sexual \u2014 7 categorii) și 3 (Explorare \u2014 12 categorii) se deblochează cu o plată unică de 29 RON \u2014 fără abonament, fără reînnoiri automate. Plata e procesată securizat prin Stripe.'],
-    [isEN?'Can I access results later?':'Pot reaccesa rezultatele mai târziu?', isEN?'Yes. After payment, you automatically receive an email with a recovery link, accessible from any device. The link stays active as long as testcuplu.ro is running. If you lose the email, you can request resending anytime from the results page, via the "Resend access link" button. For your own archive, we recommend downloading the report as PDF right after payment — that way you keep it on your device, independent of anything.':'Da. După plată, primiți automat un email cu un link de recuperare a rezultatelor, accesibil de pe orice dispozitiv. Linkul rămâne activ cât timp testcuplu.ro funcționează. Dacă pierdeți email-ul, puteți cere retrimiterea oricând din pagina cu rezultate, prin butonul „Retrimite linkul de acces". Pentru arhivă proprie, vă recomandăm să descărcați raportul ca PDF imediat după plată \u2014 astfel îl păstrați pe dispozitiv, independent de orice.'],
+    [isEN?'Can I access results later?':'Pot reaccesa rezultatele mai târziu?', isEN?'Yes, partly. After payment, you automatically receive an email with a link that re-opens Premium access — but the link only works correctly on the device and browser where you completed the test, because your answers are saved exclusively on that device, never on our server. On another device, the link confirms payment but can\'t display answers that aren\'t there. That\'s why we strongly recommend downloading the report as PDF right after payment — it\'s the only copy that travels with you, regardless of device.':'Da, parțial. După plată, primiți automat un email cu un link care redeschide accesul Premium — dar linkul funcționează corect doar pe dispozitivul și browserul pe care ați completat testul, pentru că răspunsurile voastre rămân salvate exclusiv pe acel dispozitiv, niciodată pe serverul nostru. Pe alt dispozitiv, linkul confirmă plata, dar nu poate afișa răspunsurile care lipsesc de acolo. De aceea vă recomandăm ferm să descărcați raportul ca PDF imediat după plată \u2014 e singura copie care vă însoțește oriunde, indiferent de dispozitiv.'],
     [isEN?'Can I get my money back?':'Pot primi banii înapoi?', isEN?'We voluntarily offer a 14-day money-back guarantee from the payment date, no explanation required. At checkout, you confirm that you unlock digital content instantly and waive the 14-day right of withdrawal per Romanian OUG 34/2014 art. 16 lit. m — however, we honor good-faith refund requests made within the first 14 days. Email contact@testcuplu.ro and we refund in full within 3-10 business days via Stripe.':'Oferim voluntar 14 zile money-back guarantee de la data plății, fără explicații necesare. La momentul plății bifați că deblocați conținut digital instant și renunțați la dreptul de retragere de 14 zile prevăzut de OUG 34/2014 art. 16 lit. m \u2014 totuși onorăm cererile de refund făcute cu bună-credință în primele 14 zile. Scrieți la contact@testcuplu.ro și vă rambursăm integral în 3-10 zile lucrătoare prin Stripe.'],
     [isEN?'Can we retake the test?':'Putem reface testul?', isEN?'Yes. On the results page there\'s a "New test" button that resets everything and starts over. Useful after a longer period, after an important conversation, or if you want to compare your evolution. Important: after reset, if you\'ve previously paid Premium, use the recovery link received by email to re-unlock Zones 2 and 3 — no additional payment.':'Da. Pe pagina rezultatelor există butonul „Test nou" care resetează totul și începe din nou. Util după o perioadă mai lungă, după o discuție importantă, sau dacă vreți să comparați evoluția. Important: după resetare, dacă ați plătit anterior Premium, folosiți linkul de recuperare primit pe email pentru a redebloca Zonele 2 și 3 \u2014 fără plată suplimentară.'],
     [isEN?'Is our data private?':'Datele noastre sunt private?', isEN?'Yes. Your answers stay only on your device, in the browser — we don\'t save them on servers and don\'t use them for anything else. Payment is processed by Stripe in a secure environment (PCI DSS standard — used by international banks); we only see amount and transaction status, never card details. The email address is used exclusively to send the access code after Premium payment, and to resend it if requested. Nothing more.':'Da. Răspunsurile rămân doar pe dispozitivul vostru, în browser \u2014 nu le salvăm pe servere și nu le folosim pentru nimic altceva. Plata e procesată de Stripe în mediu securizat (standard PCI DSS \u2014 folosit de bănci internaționale); noi vedem doar suma și statusul tranzacției, nu vedem datele cardului. Adresa de email este folosită exclusiv pentru trimiterea codului de acces după plata Premium și pentru retrimiterea lui dacă o cereți. Atât.'],
