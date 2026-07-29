@@ -1,4 +1,4 @@
-<!-- VERSIUNE: v63 · 26 iulie 2026 · fix-uri: Stripe live, "secluded cabin", console.log șterse, Plausible, traducere labels, Coming Soon off, fix H (contradicție cont), fix B (text zonă pe scor), fix D (FAQ recovery reformulat), fix F (checkbox consimțământ email), fix E (state doar în localStorage, nu cookie — nu mai trimite răspunsuri la fiecare cerere). NOTĂ: fix A și fix C vin separat în v64. -->
+<!-- VERSIUNE: v64 · 28 iulie 2026 · pornește de la v63 și ADAUGĂ: fix A (skip='skip', exclus din scor, numărat în progres), fix C (revalidare server-side acces plătit), plus tratarea categoriilor fără scor (unul sau ambii au sărit TOATE întrebările → afișează "—" nu 0%, mesaj dedicat cu numele, exclusă din medii și din listele de puncte tari/slabe, pe ecran ȘI în email). ATINGE scorul și plata — testează separat de v63. -->
 <!DOCTYPE html>
 <html lang="ro">
 <head>
@@ -3366,6 +3366,9 @@ document.addEventListener('DOMContentLoaded', function(){
   // payment_intent/checkout session găsit în URL. Dacă e validă, pagina se
   // reîncarcă automat o singură dată, cu accesul deblocat persistent.
   verifyPendingPayment();
+  // FIX C: revalidează, async, accesul plătit persistent din localStorage — dacă nu
+  // există un cod de plată real în spate (falsificare manuală), accesul e revocat.
+  revalidatePaidAccess();
   // Dacă tocmai am confirmat o plată reală (setat înainte de reload-ul de mai sus)
   var justPaid = false;
   try{ justPaid = sessionStorage.getItem('tc_just_paid')==='1'; }catch(e){}
@@ -3736,7 +3739,7 @@ function answeredCount(player){
   var total=0;
   for(var k in ans){
     var arr=ans[k];
-    for(var i=0;i<arr.length;i++) if(arr[i]!=null) total++;
+    for(var i=0;i<arr.length;i++) if(arr[i]!=null) total++; // 'skip' e !=null, deci se numără ca răspuns dat
   }
   return total;
 }
@@ -4076,7 +4079,7 @@ function renderQ(){
   var skipBtn=document.createElement('button');
   skipBtn.style.cssText='margin-top:10px;width:100%;padding:10px;background:transparent;border:0.5px solid rgba(156,163,175,0.3);border-radius:10px;color:rgba(156,163,175,0.7);font-size:0.75rem;cursor:pointer;';
   skipBtn.textContent=LANG==='en'?'Prefer not to answer this question':'Prefer să nu răspund la această întrebare';
-  skipBtn.onclick=function(){ record(0); };
+  skipBtn.onclick=function(){ record('skip'); };
   div.appendChild(skipBtn);
 }
 
@@ -4152,12 +4155,20 @@ function calcResults(){
     var qs1=getFiltered(ci,1), qs2=getFiltered(ci,2);
     var cs=0,cc=0,details=[];
     var len=Math.max(a1.length,a2.length,qs1.length,qs2.length);
+    // Câte răspunsuri REALE (non-skip, non-null) are fiecare partener în categorie.
+    // Folosit ca să știm, când nu iese niciun scor, CINE a ales "Prefer să nu răspund".
+    var real1=0, real2=0;
+    for(var ri=0;ri<len;ri++){
+      if(a1[ri]!=null && a1[ri]!=='skip') real1++;
+      if(a2[ri]!=null && a2[ri]!=='skip') real2++;
+    }
 
     for(var i=0;i<len;i++){
       var qo=qs1[i]||qs2[i]||cat.q[i]||{};
       var v1=a1[i],v2=a2[i];
-      // Skip null values (from back button)
-      if(v1==null||v2==null){details.push({t:qo.t||'',en:qo.en||'',p1:v1,p2:v2,diff:null,isABCD:!!(qo.abcd),opts:qo.abcd||null,optsEn:qo.abcden||null});continue;}
+      // Skip null (back button) SAU 'skip' (utilizatorul a ales "Prefer să nu răspund").
+      // Ambele sunt excluse din calcul — un skip nu mai e tratat ca dezacord total.
+      if(v1==null||v2==null||v1==='skip'||v2==='skip'){details.push({t:qo.t||'',en:qo.en||'',p1:(v1==='skip'?null:v1),p2:(v2==='skip'?null:v2),diff:null,isABCD:!!(qo.abcd),opts:qo.abcd||null,optsEn:qo.abcden||null});continue;}
       var sc;
       if(qo.abcd){
         sc=abcdScore(v1,v2,qo.abcdCategorical);
@@ -4170,7 +4181,17 @@ function calcResults(){
       else if(g==='style'){groups.style.s+=sc;groups.style.c++;}
       else{groups.disc.s+=sc;groups.disc.c++;}
     }
-    if(cc>0||details.length>0) results[cat.name]={score:cc>0?(cs/(cc*5))*100:0,group:cat.group,details:details,order:ci};
+    // Când nu există NICIO pereche comparabilă (cc===0), categoria nu primește scor.
+    // skippedBy: 'p1' / 'p2' / 'both' — cine a ales "Prefer să nu răspund" la tot.
+    var noScore=false, skippedBy=null;
+    if(cc===0 && details.length>0){
+      noScore=true;
+      if(real1===0 && real2===0) skippedBy='both';
+      else if(real1===0) skippedBy='p1';
+      else if(real2===0) skippedBy='p2';
+      else skippedBy='both'; // caz rar: amândoi au răspuns, dar niciodată la aceeași întrebare
+    }
+    if(cc>0||details.length>0) results[cat.name]={score:cc>0?(cs/(cc*5))*100:0,noScore:noScore,skippedBy:skippedBy,group:cat.group,details:details,order:ci};
   }
   var _core=groups.core.c>0?(groups.core.s/(groups.core.c*5))*100:null;
   var _style=groups.style.c>0?(groups.style.s/(groups.style.c*5))*100:null;
@@ -4190,7 +4211,34 @@ function calcResults(){
   };
 }
 
+function noScoreMsg(skippedBy, isEN){
+  // Textul afișat când o categorie nu are nicio pereche de răspunsuri comparabilă.
+  var n1=((S.p1&&S.p1.name)||(isEN?'Partner 1':'Partenerul 1')), n2=((S.p2&&S.p2.name)||(isEN?'Partner 2':'Partenerul 2'));
+  var who = skippedBy==='p1' ? n1 : (skippedBy==='p2' ? n2 : null);
+  var title = isEN ? 'No score here yet' : 'Aici nu avem înc\u0103 un scor';
+  var p1, p2;
+  if(who){
+    p1 = isEN
+      ? who+' chose \u2018Prefer not to answer\u2019 for every question in this category, so there\u2019s nothing to compare \u2014 this category doesn\u2019t count toward your overall score.'
+      : who+' a ales \u201ePrefer s\u0103 nu r\u0103spund\u201d la toate \u00eentreb\u0103rile din aceast\u0103 categorie, a\u0219a c\u0103 nu avem ce compara \u2014 categoria nu intr\u0103 \u00een scorul general.';
+    p2 = isEN ? 'This time, the subject stayed outside the test.' : 'De data aceasta, subiectul a r\u0103mas \u00een afara testului.';
+  } else {
+    p1 = isEN
+      ? 'Neither of you answered the questions in this category, so there\u2019s nothing to compare \u2014 this category doesn\u2019t count toward your overall score.'
+      : 'Niciunul dintre voi n-a r\u0103spuns la \u00eentreb\u0103rile din aceast\u0103 categorie, a\u0219a c\u0103 nu avem ce compara \u2014 categoria nu intr\u0103 \u00een scorul general.';
+    p2 = isEN ? 'This time, the subject stayed outside the test \u2014 for both of you.' : 'De data aceasta, subiectul a r\u0103mas \u00een afara testului \u2014 pentru am\u00e2ndoi.';
+  }
+  var p3 = isEN
+    ? 'Don\u2019t turn a missing score into a problem to solve. If you want to come back to it, start with one question: \u2018Is there anything here you\u2019d want to talk about?\u2019'
+    : 'Nu transforma\u021Bi lipsa scorului \u00eentr-o problem\u0103 de rezolvat. Dac\u0103 vre\u021Bi s\u0103 reveni\u021Bi la categorie, \u00eencepe\u021Bi cu o singur\u0103 \u00eentrebare: \u201eEste ceva de aici despre care ai vrea s\u0103 vorbim?\u201d';
+  return {title:title, body:p1+' '+p2+' '+p3, p1:p1, p2:p2, p3:p3};
+}
+
 function intAns(val,isABCD,opts,optsEn){
+  // 'skip' = utilizatorul a ales "Prefer să nu răspund". E un string truthy,
+  // deci trebuie prins EXPLICIT înainte de verificarea !val, altfel s-ar afișa
+  // textul brut "skip" (sau un caracter corupt la întrebările ABCD).
+  if(val==='skip') return '\u2014';
   if(!val) return '\u2014';
   var useOpts=LANG==='en'?(optsEn||opts):opts;
   if(isABCD&&useOpts){var idx=val-1;return String.fromCharCode(65+idx)+(useOpts[idx]?' \u2013 '+useOpts[idx]:'');}
@@ -4302,33 +4350,41 @@ function renderResults(){
     var sorted=Object.keys(res).sort(function(a,b){return res[a].order-res[b].order;});
     var advSrc=isEN?ADV_EN:ADV;
 
+    // Categoriile fără scor (unul sau ambii au ales "Prefer să nu răspund" la TOT)
+    // nu intră în medii, nici în listele de puncte tari/slabe — altfel ar apărea
+    // ca 0% și ar trage zona în jos pe nedrept.
+    function scored(list){ return list.filter(function(cn){ return !res[cn].noScore; }); }
+
     // Categorii Zona 1
     var z1Cats=sorted.filter(function(cn){return res[cn].group==='core';});
-    var avgZ1=z1Cats.length>0?Math.round(z1Cats.reduce(function(s,cn){return s+Math.round(res[cn].score);},0)/z1Cats.length):0;
+    var z1Scored=scored(z1Cats);
+    var avgZ1=z1Scored.length>0?Math.round(z1Scored.reduce(function(s,cn){return s+Math.round(res[cn].score);},0)/z1Scored.length):0;
 
     // Header Zona 1
     var z1Header=document.createElement('div');
     z1Header.innerHTML=
       '<div style="padding:28px 20px 14px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(255,255,255,0.06);">'+
       '<div style="width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;background:rgba(244,63,94,0.15);border:1px solid rgba(244,63,94,0.3);">&#x2764;&#xFE0F;</div>'+
-      '<div><div style="font-size:17px;font-weight:900;color:#f87171;">'+(isEN?'Zone 1 — Relationship & Connection':'Zona 1 \u2014 Rela\u0163ie & Conexiune')+'</div>'+
+      '<div><div style="font-size:17px;font-weight:900;color:#f87171;">'+(isEN?'Zone 1 — Relationship & Connection':'Zona 1 \u2014 Rela\u021Bie & Conexiune')+'</div>'+
       '<div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:2px;">'+z1Cats.length+(isEN?' categories analysed':' categorii analizate')+'</div></div>'+
-      '<div style="margin-left:auto;text-align:right;"><div style="font-size:24px;font-weight:900;color:#f87171;">'+avgZ1+'%</div>'+
+      '<div style="margin-left:auto;text-align:right;"><div style="font-size:24px;font-weight:900;color:#f87171;">'+(z1Scored.length>0?avgZ1+'%':'\u2014')+'</div>'+
       '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;opacity:0.4;">'+(isEN?'avg score':'scor mediu')+'</div></div>'+
       '</div>'+
       '<div style="margin:12px 16px 6px;border-radius:14px;padding:13px 16px;font-size:13px;line-height:1.65;font-weight:500;background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.18);color:rgba(255,255,255,0.72);">'+
-      (isEN?'The foundation of your relationship is <strong style="color:#f87171;">solid</strong>. Zone 1 measures emotional connection, communication and shared values — the elements that support everything else.':'Funda\u0163ia rela\u0163iei voastre este <strong style=\"color:#f87171;\">solid\u0103</strong>. Zona 1 m\u0103soar\u0103 conexiunea emo\u0163ional\u0103, comunicarea \u015fi valorile comune \u2014 elementele care sus\u0163in tot ce urmeaz\u0103.')+
+      (isEN?'The foundation of your relationship is <strong style="color:#f87171;">solid</strong>. Zone 1 measures emotional connection, communication and shared values — the elements that support everything else.':'Funda\u021Bia rela\u021Biei voastre este <strong style=\"color:#f87171;\">solid\u0103</strong>. Zona 1 m\u0103soar\u0103 conexiunea emo\u021Bional\u0103, comunicarea \u0219i valorile comune \u2014 elementele care sus\u021Bin tot ce urmeaz\u0103.')+
       '</div>';
     catsDiv.appendChild(z1Header);
 
     // Categorii
     z1Cats.forEach(function(cn, idx){
+      var noSc=!!res[cn].noScore;
+      var nsm=noSc?noScoreMsg(res[cn].skippedBy,isEN):null;
       var sc=Math.round(res[cn].score);
-      var col=sc>=80?'#15803d':sc>=60?'#b45309':'#be123c';
-      var pctCol=sc>=80?'#4ade80':sc>=60?'#fbbf24':'#fb7185';
+      var col=noSc?'#6b7280':(sc>=80?'#15803d':sc>=60?'#b45309':'#be123c');
+      var pctCol=noSc?'rgba(255,255,255,0.35)':(sc>=80?'#4ade80':sc>=60?'#fbbf24':'#fb7185');
       var catName=isEN?(CAT_EN[cn]||cn):cn;
       var adv=advSrc[cn]||{};
-      var advTxt=sc>=75?adv.h:sc>=55?adv.m:adv.l;
+      var advTxt=noSc?null:(sc>=75?adv.h:sc>=55?adv.m:adv.l);
       var isFirst=idx===0;
       var rowId='z1cat'+idx;
       // Întrebări și răspunsuri
@@ -4341,8 +4397,11 @@ function renderResults(){
         var qs=qs1.length>=qs2.length?qs1:qs2;
         for(var qi=0;qi<qs.length;qi++){
           var q=qs[qi]; var v1=a1[qi]; var v2=a2[qi];
-          if(v1==null&&v2==null) continue;
-          var diff=v1!=null&&v2!=null?Math.abs(v1-v2):null;
+          // 'skip' se tratează ca lipsă de răspuns: nu e o valoare comparabilă.
+          var sk1=(v1==='skip'), sk2=(v2==='skip');
+          if((v1==null||sk1)&&(v2==null||sk2)) continue;
+          var cmp1=sk1?null:v1, cmp2=sk2?null:v2;
+          var diff=cmp1!=null&&cmp2!=null?Math.abs(cmp1-cmp2):null;
           var diffTxt=diff===null?'':(diff===0?(isEN?'\u2713 Identical':'\u2713 Identic'):(diff<=1?(isEN?'Very close':'Foarte aproape'):(isEN?'Quite different':'Destul de diferit')));
           var diffColor=diff===null?'':(diff===0?'#4ade80':(diff<=1?'#fbbf24':'#fb7185'));
           var ans1Txt=intAns(v1,!!q.abcd,q.abcd||null,q.abcden||null);
@@ -4368,12 +4427,13 @@ function renderResults(){
         '<div onclick="pzToggle(\''+rowId+'\')" style="display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;">'+
         '<div style="width:3px;border-radius:999px;align-self:stretch;min-height:18px;flex-shrink:0;background:'+col+';"></div>'+
         '<div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);flex:1;">'+escapeHtml(catName)+'</div>'+
-        '<div style="font-size:15px;font-weight:900;color:'+pctCol+';margin-right:5px;">'+sc+'%</div>'+
+        '<div style="font-size:15px;font-weight:900;color:'+pctCol+';margin-right:5px;">'+(noSc?'\u2014':sc+'%')+'</div>'+
         '<div class="pz-chev-'+rowId+'" style="font-size:10px;color:rgba(255,255,255,0.25);">'+(isFirst?'\u25b2':'\u25bc')+'</div>'+
         '</div>'+
         '<div style="background:rgba(255,255,255,0.07);border-radius:999px;height:6px;margin:0 16px 12px;overflow:hidden;">'+
-        '<div style="width:'+sc+'%;height:6px;background:'+col+';border-radius:999px;"></div></div>'+
+        '<div style="width:'+(noSc?0:sc)+'%;height:6px;background:'+col+';border-radius:999px;"></div></div>'+
         '<div id="pz-det-'+rowId+'" style="display:'+(isFirst?'block':'none')+';padding:0 16px 14px;">'+
+        (nsm?'<div style="border-radius:10px;padding:13px 15px;font-size:12.5px;line-height:1.72;color:rgba(255,255,255,0.7);border-left:3px solid #6b7280;background:rgba(255,255,255,0.04);margin-bottom:10px;"><div style="font-weight:800;color:rgba(255,255,255,0.9);margin-bottom:7px;">'+escapeHtml(nsm.title)+'</div><div style="margin-bottom:7px;">'+escapeHtml(nsm.p1)+'</div><div style="margin-bottom:7px;">'+escapeHtml(nsm.p2)+'</div><div>'+escapeHtml(nsm.p3)+'</div></div>':'')+
         (advTxt?'<div style="border-radius:10px;padding:13px 15px;font-size:12.5px;line-height:1.72;color:rgba(255,255,255,0.7);border-left:3px solid '+col+';background:rgba(255,255,255,0.04);margin-bottom:10px;">'+escapeHtml(advTxt)+'</div>':'')+
         qHtml+
         '</div>';
@@ -4381,8 +4441,8 @@ function renderResults(){
     });
 
     // Puncte forte și de îmbunătățit Zona 1
-    var strongZ1=z1Cats.filter(function(cn){return Math.round(res[cn].score)>=82;}).slice(0,3);
-    var weakZ1=z1Cats.filter(function(cn){return Math.round(res[cn].score)<70;}).slice(0,2);
+    var strongZ1=z1Cats.filter(function(cn){return !res[cn].noScore&&Math.round(res[cn].score)>=82;}).slice(0,3);
+    var weakZ1=z1Cats.filter(function(cn){return !res[cn].noScore&&Math.round(res[cn].score)<70;}).slice(0,2);
 
     var strengthsHtmlZ1=strongZ1.length>0
       ?strongZ1.map(function(cn){
@@ -4391,10 +4451,10 @@ function renderResults(){
           return '<div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:9px;font-size:12.5px;line-height:1.55;color:rgba(255,255,255,0.65);">'+
             '<div style="width:20px;height:20px;min-width:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;margin-top:1px;flex-shrink:0;background:rgba(21,128,61,0.2);color:#4ade80;border:1px solid rgba(74,222,128,0.25);">\u2713</div>'+
             '<div><strong style="color:rgba(255,255,255,0.85);">'+escapeHtml(nm)+'</strong> \u2014 '+sc2+'% '+(isEN?'match.':'potrivire.')+' '+
-            (sc2>=90?(isEN?'Exceptional.':'Excep\u0163ional.'):(isEN?'Solid and stable.':'Solid \u015fi stabil.'))+
+            (sc2>=90?(isEN?'Exceptional.':'Excep\u021Bional.'):(isEN?'Solid and stable.':'Solid \u0219i stabil.'))+
             '</div></div>';
         }).join('')
-      :'<div style="color:rgba(255,255,255,0.4);font-size:12.5px;font-style:italic;">'+(isEN?'Work on this zone together.':'Lucra\u0163i \xeempreun\u0103 la aceast\u0103 zon\u0103.')+'</div>';
+      :'<div style="color:rgba(255,255,255,0.4);font-size:12.5px;font-style:italic;">'+(isEN?'Work on this zone together.':'Lucra\u021Bi \xeempreun\u0103 la aceast\u0103 zon\u0103.')+'</div>';
 
     var improvHtmlZ1=weakZ1.length>0
       ?weakZ1.map(function(cn){
@@ -4403,10 +4463,10 @@ function renderResults(){
           return '<div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:9px;font-size:12.5px;line-height:1.55;color:rgba(255,255,255,0.65);">'+
             '<div style="width:20px;height:20px;min-width:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;margin-top:1px;flex-shrink:0;background:rgba(180,83,9,0.2);color:#fbbf24;border:1px solid rgba(251,191,36,0.25);">\u2197</div>'+
             '<div><strong style="color:rgba(255,255,255,0.85);">'+escapeHtml(nm)+'</strong> \u2014 '+sc2+'%. '+
-            (isEN?'A short conversation can clarify the differences.':'O conversa\u0163ie scurt\u0103 poate clarifica diferen\u0163ele.')+
+            (isEN?'A short conversation can clarify the differences.':'O conversa\u021Bie scurt\u0103 poate clarifica diferen\u021Bele.')+
             '</div></div>';
         }).join('')
-      :'<div style="color:rgba(255,255,255,0.5);font-size:12.5px;font-style:italic;">'+(isEN?'No critical areas — well aligned.':'Nicio zon\u0103 critic\u0103 \u2014 bine alinia\u0163i.')+'</div>';
+      :'<div style="color:rgba(255,255,255,0.5);font-size:12.5px;font-style:italic;">'+(isEN?'No critical areas — well aligned.':'Nicio zon\u0103 critic\u0103 \u2014 bine alinia\u021Bi.')+'</div>';
 
     var relDur=S.relDur||'';
     var relStatus=S.relStatus||'';
@@ -4433,7 +4493,7 @@ function renderResults(){
       strengthsHtmlZ1+
       '</div>'+
       '<div style="padding:15px 18px;background:rgba(180,83,9,0.04);border-top:1px solid rgba(255,255,255,0.06);">'+
-      '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:11px;color:#fbbf24;display:flex;align-items:center;gap:6px;"><span>&#x2197;</span>'+(isEN?'Where you can grow':'Unde pute\u0163i cre\u015fte')+'</div>'+
+      '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:11px;color:#fbbf24;display:flex;align-items:center;gap:6px;"><span>&#x2197;</span>'+(isEN?'Where you can grow':'Unde pute\u021Bi cre\u0219te')+'</div>'+
       improvHtmlZ1+
       '</div>'+
       '<div style="padding:18px;background:rgba(0,0,0,0.25);border-top:1px solid rgba(255,255,255,0.06);">'+
@@ -4443,7 +4503,7 @@ function renderResults(){
     catsDiv.appendChild(z1EndCard);
 
     // ── Sfaturi generale pentru Zona 1 (modul gratuit) ──
-    var z1CatsKeys=sorted.filter(function(cn){return res[cn].group==='core';});
+    var z1CatsKeys=sorted.filter(function(cn){return res[cn].group==='core'&&!res[cn].noScore;});
     var maxPctZ1=z1CatsKeys.length>0?Math.max.apply(null,z1CatsKeys.map(function(cn){return Math.round(res[cn].score);})):0;
     var topCatsZ1=z1CatsKeys.filter(function(cn){return Math.round(res[cn].score)===maxPctZ1;});
     var weakCatsZ1=z1CatsKeys.slice().sort(function(a,b){return res[a].score-res[b].score;}).slice(0,2);
@@ -4577,7 +4637,8 @@ function renderPaidZones(catsDiv, res, isEN, data){
     var advSrc=isEN?ADV_EN:ADV;
 
     // Scor mediu zonă
-    var avgScore=Math.round(zoneCats.reduce(function(s,cn){return s+Math.round(res[cn].score);},0)/zoneCats.length);
+    var zoneScored=zoneCats.filter(function(cn){return !res[cn].noScore;});
+    var avgScore=zoneScored.length>0?Math.round(zoneScored.reduce(function(s,cn){return s+Math.round(res[cn].score);},0)/zoneScored.length):0;
 
     // Zone header
     var zoneTitle=isEN?zoneTitleEN:zoneTitleRO;
@@ -4608,7 +4669,7 @@ function renderPaidZones(catsDiv, res, isEN, data){
       '<div style="width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;background:'+zoneBg+';border:1px solid '+zoneBorder+';">'+zoneIcon+'</div>'+
       '<div><div style="font-size:17px;font-weight:900;color:'+zoneColor+';">'+escapeHtml(zoneTitle)+'</div>'+
       '<div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:2px;">'+zoneCats.length+(isEN?' categories analysed':' categorii analizate')+'</div></div>'+
-      '<div style="margin-left:auto;text-align:right;"><div style="font-size:24px;font-weight:900;color:'+zoneColor+';">'+avgScore+'%</div>'+
+      '<div style="margin-left:auto;text-align:right;"><div style="font-size:24px;font-weight:900;color:'+zoneColor+';">'+(zoneScored.length>0?avgScore+'%':'\u2014')+'</div>'+
       '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;opacity:0.4;">'+(isEN?'avg score':'scor mediu')+'</div></div>'+
       '</div>';
 
@@ -4617,12 +4678,14 @@ function renderPaidZones(catsDiv, res, isEN, data){
     // Categorii
     var catsHtml='';
     zoneCats.forEach(function(cn, idx){
+      var noSc=!!res[cn].noScore;
+      var nsm=noSc?noScoreMsg(res[cn].skippedBy,isEN):null;
       var sc=Math.round(res[cn].score);
-      var col=sc>=80?'#15803d':sc>=60?'#b45309':'#be123c';
-      var pctCol=sc>=80?'#4ade80':sc>=60?'#fbbf24':'#fb7185';
+      var col=noSc?'#6b7280':(sc>=80?'#15803d':sc>=60?'#b45309':'#be123c');
+      var pctCol=noSc?'rgba(255,255,255,0.35)':(sc>=80?'#4ade80':sc>=60?'#fbbf24':'#fb7185');
       var catName=isEN?(CAT_EN[cn]||cn):cn;
       var adv=advSrc[cn]||{};
-      var advTxt=sc>=75?adv.h:sc>=55?adv.m:adv.l;
+      var advTxt=noSc?null:(sc>=75?adv.h:sc>=55?adv.m:adv.l);
       var isFirst=idx===0;
       var rowId='pz-cat-'+group+'-'+idx;
       // ── Întrebări și răspunsuri P1 vs P2 (identic cu Zona 1) ──
@@ -4635,8 +4698,11 @@ function renderPaidZones(catsDiv, res, isEN, data){
         var qs=qs1.length>=qs2.length?qs1:qs2;
         for(var qi=0;qi<qs.length;qi++){
           var q=qs[qi]; var v1=a1[qi]; var v2=a2[qi];
-          if(v1==null&&v2==null) continue;
-          var diff=v1!=null&&v2!=null?Math.abs(v1-v2):null;
+          // 'skip' se tratează ca lipsă de răspuns: nu e o valoare comparabilă.
+          var sk1=(v1==='skip'), sk2=(v2==='skip');
+          if((v1==null||sk1)&&(v2==null||sk2)) continue;
+          var cmp1=sk1?null:v1, cmp2=sk2?null:v2;
+          var diff=cmp1!=null&&cmp2!=null?Math.abs(cmp1-cmp2):null;
           var diffTxt=diff===null?'':(diff===0?(isEN?'\u2713 Identical':'\u2713 Identic'):(diff<=1?(isEN?'Very close':'Foarte aproape'):(isEN?'Quite different':'Destul de diferit')));
           var diffColor=diff===null?'':(diff===0?'#4ade80':(diff<=1?'#fbbf24':'#fb7185'));
           var ans1Txt=intAns(v1,!!q.abcd,q.abcd||null,q.abcden||null);
@@ -4660,21 +4726,22 @@ function renderPaidZones(catsDiv, res, isEN, data){
         '<div onclick="pzToggle(\''+rowId+'\')" style="display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;">'+
         '<div style="width:3px;border-radius:999px;align-self:stretch;min-height:18px;flex-shrink:0;background:'+col+';"></div>'+
         '<div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);flex:1;">'+escapeHtml(catName)+'</div>'+
-        '<div style="font-size:15px;font-weight:900;color:'+pctCol+';margin-right:5px;">'+sc+'%</div>'+
+        '<div style="font-size:15px;font-weight:900;color:'+pctCol+';margin-right:5px;">'+(noSc?'\u2014':sc+'%')+'</div>'+
         '<div class="pz-chev-'+rowId+'" style="font-size:10px;color:rgba(255,255,255,0.25);">'+(isFirst?'▲':'▼')+'</div>'+
         '</div>'+
         '<div style="background:rgba(255,255,255,0.07);border-radius:999px;height:6px;margin:0 16px 12px;overflow:hidden;">'+
-        '<div style="width:'+sc+'%;height:6px;background:'+col+';border-radius:999px;"></div></div>'+
+        '<div style="width:'+(noSc?0:sc)+'%;height:6px;background:'+col+';border-radius:999px;"></div></div>'+
         '<div id="pz-det-'+rowId+'" style="display:'+(isFirst?'block':'none')+';padding:0 16px 14px;">'+
+        (nsm?'<div style="border-radius:10px;padding:13px 15px;font-size:12.5px;line-height:1.72;color:rgba(255,255,255,0.7);border-left:3px solid #6b7280;background:rgba(255,255,255,0.04);margin-bottom:10px;"><div style="font-weight:800;color:rgba(255,255,255,0.9);margin-bottom:7px;">'+escapeHtml(nsm.title)+'</div><div style="margin-bottom:7px;">'+escapeHtml(nsm.p1)+'</div><div style="margin-bottom:7px;">'+escapeHtml(nsm.p2)+'</div><div>'+escapeHtml(nsm.p3)+'</div></div>':'')+
         (advTxt?'<div style="border-radius:10px;padding:13px 15px;font-size:12.5px;line-height:1.72;color:rgba(255,255,255,0.7);border-left:3px solid '+col+';background:rgba(255,255,255,0.04);margin-bottom:10px;">'+escapeHtml(advTxt)+'</div>':'')+
         qHtml+
         '</div></div>';
     });
 
     // Puncte forte și de îmbunătățit
-    var maxPctZone=Math.max.apply(null,zoneCats.map(function(cn){return Math.round(res[cn].score);}));
-    var strongCats=zoneCats.filter(function(cn){return Math.round(res[cn].score)>=82;}).slice(0,3);
-    var weakCatsZ=zoneCats.filter(function(cn){return Math.round(res[cn].score)<70;}).slice(0,3);
+    var maxPctZone=zoneScored.length>0?Math.max.apply(null,zoneScored.map(function(cn){return Math.round(res[cn].score);})):0;
+    var strongCats=zoneCats.filter(function(cn){return !res[cn].noScore&&Math.round(res[cn].score)>=82;}).slice(0,3);
+    var weakCatsZ=zoneCats.filter(function(cn){return !res[cn].noScore&&Math.round(res[cn].score)<70;}).slice(0,3);
 
     var strengthsHtml=strongCats.length>0
       ?strongCats.map(function(cn){
@@ -4747,7 +4814,7 @@ function renderPaidZones(catsDiv, res, isEN, data){
   catsDiv.appendChild(sep2);
 
   // ── Sfaturi generale personalizate ──
-  var allCatsKeys=sorted.filter(function(cn){return res[cn].group!=='core';});
+  var allCatsKeys=sorted.filter(function(cn){return res[cn].group!=='core'&&!res[cn].noScore;});
   var maxPctAll=Math.max.apply(null,allCatsKeys.map(function(cn){return Math.round(res[cn].score);}));
   var topCatsAll=allCatsKeys.filter(function(cn){return Math.round(res[cn].score)===maxPctAll;});
   var weakCatsAll=allCatsKeys.slice().sort(function(a,b){return res[a].score-res[b].score;}).slice(0,2);
@@ -4858,11 +4925,13 @@ function generateReportHTML(data, isEN){
     var d = data.results[cn];
     if(!PAID && d.group!=='core') return;
     var catName = isEN?(CAT_EN[cn]||cn):cn;
+    var noSc = !!d.noScore;
+    var nsm = noSc?noScoreMsg(d.skippedBy,isEN):null;
     var sc = Math.round(d.score);
     var adv = advSrc[cn]||{};
-    var advTxt = sc>=75?adv.h:sc>=55?adv.m:adv.l;
-    var barColor = sc>=75?'#15803d':sc>=55?'#b45309':'#be123c';
-    var bgColor = sc>=75?'#f0fdf4':sc>=55?'#fffbeb':'#fff1f2';
+    var advTxt = noSc?null:(sc>=75?adv.h:sc>=55?adv.m:adv.l);
+    var barColor = noSc?'#9ca3af':(sc>=75?'#15803d':sc>=55?'#b45309':'#be123c');
+    var bgColor = noSc?'#f3f4f6':(sc>=75?'#f0fdf4':sc>=55?'#fffbeb':'#fff1f2');
 
     // Zone header
     if(d.group !== lastGroup){
@@ -4912,8 +4981,15 @@ function generateReportHTML(data, isEN){
     catsHTML += '<div style="background:#fff;border-radius:14px;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.05);">';
     catsHTML += '<div style="padding:14px 16px 0;display:flex;align-items:center;justify-content:space-between;">';
     catsHTML += '<div style="display:flex;align-items:center;gap:10px;"><div style="width:4px;height:36px;border-radius:4px;background:'+barColor+';flex-shrink:0;"></div><div style="font-weight:900;font-size:14px;color:#1f2937;">'+catName+'</div></div>';
-    catsHTML += '<div style="font-weight:900;font-size:16px;color:'+barColor+';">'+sc+'%</div></div>';
-    catsHTML += '<div style="height:4px;background:#f3f4f6;margin:10px 16px 0;"><div style="width:'+sc+'%;height:4px;background:'+barColor+';border-radius:2px;"></div></div>';
+    catsHTML += '<div style="font-weight:900;font-size:16px;color:'+barColor+';">'+(noSc?'\u2014':sc+'%')+'</div></div>';
+    catsHTML += '<div style="height:4px;background:#f3f4f6;margin:10px 16px 0;"><div style="width:'+(noSc?0:sc)+'%;height:4px;background:'+barColor+';border-radius:2px;"></div></div>';
+    if(nsm){
+      catsHTML += '<div style="margin:10px 16px 0;padding:12px 14px;border-radius:10px;background:#f3f4f6;border-left:3px solid #9ca3af;">';
+      catsHTML += '<div style="font-size:12.5px;font-weight:800;color:#1f2937;margin-bottom:6px;">'+escapeHtml(nsm.title)+'</div>';
+      catsHTML += '<div style="font-size:12px;line-height:1.65;color:#374151;margin-bottom:6px;">'+escapeHtml(nsm.p1)+'</div>';
+      catsHTML += '<div style="font-size:12px;line-height:1.65;color:#374151;margin-bottom:6px;">'+escapeHtml(nsm.p2)+'</div>';
+      catsHTML += '<div style="font-size:12px;line-height:1.65;color:#374151;">'+escapeHtml(nsm.p3)+'</div></div>';
+    }
     if(advTxt){
       catsHTML += '<div style="margin:10px 16px 0;padding:10px 13px;border-radius:10px;background:'+bgColor+';border-left:3px solid '+barColor+';">';
       catsHTML += '<div style="font-size:12px;line-height:1.65;color:#374151;">'+escapeHtml(advTxt)+'</div></div>';
@@ -4963,8 +5039,8 @@ function generateReportHTML(data, isEN){
     var grpBorder = grp==='core'?'#fda4af':grp==='style'?'#c4b5fd':'#fcd34d';
 
     // Puncte forte
-    var strongCats = grpCats.filter(function(cn){ return Math.round(res[cn].score)>=82; }).slice(0,3);
-    var weakCats = grpCats.filter(function(cn){ return Math.round(res[cn].score)<70; }).slice(0,2);
+    var strongCats = grpCats.filter(function(cn){ return !res[cn].noScore&&Math.round(res[cn].score)>=82; }).slice(0,3);
+    var weakCats = grpCats.filter(function(cn){ return !res[cn].noScore&&Math.round(res[cn].score)<70; }).slice(0,2);
 
     var strongHTML = strongCats.length>0
       ? strongCats.map(function(cn){
@@ -4997,8 +5073,11 @@ function generateReportHTML(data, isEN){
     };
 
     // Sfat personalizat — prima conversație de avut
-    var topCat = grpCats.slice().sort(function(a,b){ return res[b].score-res[a].score; })[0];
-    var weakCat = grpCats.slice().sort(function(a,b){ return res[a].score-res[b].score; })[0];
+    // Categoriile fără scor (skip la tot) sunt excluse: altfel ar fi alese drept
+    // "cea mai slabă zonă" cu 0%, ceea ce ar fi complet greșit.
+    var grpScored = grpCats.filter(function(cn){ return !res[cn].noScore; });
+    var topCat = grpScored.slice().sort(function(a,b){ return res[b].score-res[a].score; })[0];
+    var weakCat = grpScored.slice().sort(function(a,b){ return res[a].score-res[b].score; })[0];
     var topNm = topCat?(isEN?(CAT_EN[topCat]||topCat):topCat):'';
     var weakNm = weakCat?(isEN?(CAT_EN[weakCat]||weakCat):weakCat):'';
     var topSc = topCat?Math.round(res[topCat].score):0;
@@ -5363,6 +5442,10 @@ function checkPaidStatus(){
     // async, cu Stripe, în verifyPendingPayment() (apelată din DOMContentLoaded).
 
     // ═══ PASUL 2: VERIFICĂ STATUS PERSISTENT (returning user) ═══
+    // Acesta e un acces PROVIZORIU, pe încredere, ca UX-ul să fie instant.
+    // revalidatePaidAccess() (apelată din DOMContentLoaded) verifică async, cu
+    // serverul, dacă există un cod de plată real în spate. Dacă nu există niciun
+    // cod (ex: cineva a scris manual compat_paid='1' în consolă), accesul e revocat.
     if(!PAID){
       if(localStorage.getItem('compat_paid')==='1'){ PAID = true; }
       else if(getCookie('compat_paid')==='1'){ PAID = true; }
@@ -5436,8 +5519,12 @@ function verifyPendingPayment(){
         }catch(e){}
         var emailTarget = data.email || (savedState && savedState.coupleEmail) || (S && S.coupleEmail);
         var emailPromise = null;
+        // IMPORTANT: codul de plată se salvează NECONDIȚIONAT, chiar dacă nu avem
+        // email pentru recovery. Altfel revalidatePaidAccess() (fix C) ar găsi
+        // compat_paid='1' fără cod în spate și ar revoca accesul unui client care
+        // CHIAR a plătit — doar pentru că nu i-am putut trimite emailul.
+        try{ localStorage.setItem('compat_recovery_code', candidateId); }catch(e){}
         if(emailTarget){
-          try{ localStorage.setItem('compat_recovery_code', candidateId); }catch(e){}
           emailPromise = sendRecoveryEmail(emailTarget, candidateId);
         } else {
           console.warn('[verify-payment] Plată confirmată dar nu există email pentru recovery');
@@ -5465,6 +5552,82 @@ function verifyPendingPayment(){
       window.history.replaceState({}, '', window.location.pathname);
     });
   }catch(e){ console.error('[verifyPendingPayment] Eroare:', e); }
+}
+
+// FIX C — Revalidare acces plătit.
+// Accesul din localStorage (compat_paid='1') e acordat provizoriu, pe încredere,
+// ca returning-user-ul să vadă instant raportul. Dar cineva poate scrie manual
+// compat_paid='1' în consolă și obține acces fără plată. Această funcție verifică,
+// la fiecare încărcare, dacă în spatele flag-ului există un cod de plată REAL,
+// confirmat de Stripe prin funcția server-side verify-payment.
+// Reguli:
+//  - Dacă nu există deloc cod salvat (compat_recovery_code) → falsificare → revocă.
+//  - Dacă serverul confirmă plata → lasă accesul (rescrie flag-ul, ca să persiste).
+//  - Dacă serverul NEAGĂ explicit (valid:false) → revocă.
+//  - Dacă serverul nu răspunde (rețea/Netlify jos) → NU revocă, ca să nu penalizăm
+//    un client corect pentru o problemă temporară de infrastructură.
+function revalidatePaidAccess(){
+  try{
+    // Rulează doar dacă utilizatorul pare deja plătit din sesiuni anterioare.
+    var looksPaid = false;
+    try{ looksPaid = (localStorage.getItem('compat_paid')==='1' || getCookie('compat_paid')==='1'); }catch(e){}
+    if(!looksPaid) return;
+
+    // Dacă tocmai s-a verificat o plată din URL (verifyPendingPayment se ocupă),
+    // nu dublăm verificarea aici.
+    var params = new URLSearchParams(window.location.search);
+    if(params.get('payment_intent') || params.get('session_id') || params.get('restore')) return;
+
+    var code = null;
+    try{ code = localStorage.getItem('compat_recovery_code'); }catch(e){}
+
+    // Fără NICIUN cod în spate → nimeni n-a plătit vreodată pe acest browser,
+    // deci flag-ul e falsificat manual (ex: localStorage.setItem în consolă) → revocă.
+    if(!code){
+      revokePaidAccess();
+      return;
+    }
+
+    // Cod în format legacy (nu pi_/cs_): provine din restore cu token vechi sau din
+    // "retrimite linkul de acces", care generează un cod aleatoriu. NU îl putem
+    // verifica cu Stripe — dar nici nu îl putem declara fals. Lăsăm accesul intact:
+    // mai bine un fals-pozitiv rar decât să blocăm un client care chiar a plătit.
+    if(code.indexOf('pi_')!==0 && code.indexOf('cs_')!==0){
+      return;
+    }
+
+    var payload = code.indexOf('cs_')===0 ? {session_id: code} : {payment_intent: code};
+    fetch('/.netlify/functions/verify-payment', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if(data && data.valid){
+        // Plată reală confirmată — reîntărește flag-ul, nimic de făcut vizual.
+        try{ localStorage.setItem('compat_paid','1'); }catch(e){}
+      } else {
+        // Serverul a răspuns clar că plata NU e validă → revocă.
+        revokePaidAccess();
+      }
+    }).catch(function(err){
+      // Serverul nu a răspuns (rețea/infrastructură). NU revocăm — lăsăm accesul,
+      // ca să nu blocăm un client corect. Se va reverifica la următoarea încărcare.
+      console.warn('[revalidate] Server indisponibil, acces păstrat provizoriu:', err);
+    });
+  }catch(e){ console.error('[revalidatePaidAccess] Eroare:', e); }
+}
+
+function revokePaidAccess(){
+  try{ localStorage.removeItem('compat_paid'); }catch(e){}
+  try{ setCookie('compat_paid','',-1); }catch(e){}
+  PAID = false;
+  // Dacă utilizatorul se uita chiar la zonele premium, reîncarcă pagina curată,
+  // ca conținutul premium să dispară imediat.
+  try{
+    if(document.getElementById('s-results') && document.getElementById('s-results').style.display !== 'none'){
+      window.location.reload();
+    }
+  }catch(e){}
 }
 
 function sendRecoveryEmail(email, code){
