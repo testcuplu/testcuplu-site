@@ -1,4 +1,4 @@
-<!-- VERSIUNE: v64 · 28 iulie 2026 · pornește de la v63 și ADAUGĂ: fix A (skip='skip', exclus din scor, numărat în progres), fix C (revalidare server-side acces plătit), plus tratarea categoriilor fără scor (unul sau ambii au sărit TOATE întrebările → afișează "—" nu 0%, mesaj dedicat cu numele, exclusă din medii și din listele de puncte tari/slabe, pe ecran ȘI în email). ATINGE scorul și plata — testează separat de v63. -->
+<!-- VERSIUNE: v65 · 30 iulie 2026 · pornește de la v64 și ADAUGĂ: fix misalignment M/F (P0-ids din audit) — pairId pe întrebările din 4 categorii (Orgasm și climax, Masturbare și auto-explorare, Jucării și accesorii, Swing și experiențe de grup), calcResults() comparare prin pairId doar acolo unde există (celelalte 21 de categorii neatinse, logică veche identică). 4 întrebări mono-sex fără echivalent devin "solo" (informative, exclusă din scor, afișează "—" la partenerul care nu are întrebarea, ca la skip). Perechea vibrator din Jucării: aliniată formatul M pe ABCD ca la F, ca să fie comparabilă. ATINGE scorul — testează separat de v64, în special cele 4 categorii. -->
 <!DOCTYPE html>
 <html lang="ro">
 <head>
@@ -1903,18 +1903,18 @@ var CATS = [
 ]},
 
 {name:"Orgasm și climax", group:"style", q:[
-  {t:"Vă place să atingeți orgasmul în același timp?",en:"Do you like reaching orgasm at the same time?",tp:"B"},
-  {t:"Îți place să-l lași pe [PARTENER_NOMINATIV] să termine primul?",en:"Do you like letting [PARTENER_NOMINATIV] orgasm first?",tp:"F"},
-  {t:"Îți place să o lași pe [PARTENER_NOMINATIV] să termine prima?",en:"Do you like letting [PARTENER_NOMINATIV] finish first?",tp:"M"},
-  {t:"Îți place să ajungi la orgasm înaintea [PARTENER_GENITIV]?",en:"Do you like reaching orgasm before [PARTENER_NOMINATIV]?",tp:"B"},
-  {t:"Îți place să prelungești momentul orgasmului?",en:"Do you like prolonging the moment of orgasm?",tp:"B"},
-  {t:"Îți place să o stimulezi pe [PARTENER_NOMINATIV] până la orgasm de mai multe ori?",en:"Do you like stimulating [PARTENER_NOMINATIV] to orgasm multiple times?",tp:"M"},
-  {t:"Îți place să-l stimulezi pe [PARTENER_NOMINATIV] până la orgasm de mai multe ori?",en:"Do you enjoy stimulating [PARTENER_NOMINATIV] to orgasm multiple times?",tp:"F"},
-  {t:"Îți place să fii stimulat/ă de [PARTENER_NOMINATIV] până la orgasm de mai multe ori?",en:"Do you enjoy being stimulated to orgasm multiple times by [PARTENER_NOMINATIV]?",tp:"B"},
-  {t:"Îți place să folosești jucării pentru a obține orgasmul cu [PARTENER_NOMINATIV]?",en:"Do you like using toys to achieve orgasm with [PARTENER_NOMINATIV]?",tp:"B"},
-  {t:"Îți place orgasmul vaginal când faci dragoste cu [PARTENER_NOMINATIV]?",en:"Do you enjoy vaginal orgasm when making love with [PARTENER_NOMINATIV]?",tp:"F"},
-  {t:"Îți place orgasmul clitoridian cu [PARTENER_NOMINATIV]?",en:"Do you enjoy clitoral orgasm with [PARTENER_NOMINATIV]?",tp:"F"},
-  {t:"Îți place să ai orgasm multiplu cu [PARTENER_NOMINATIV]?",en:"Do you enjoy multiple orgasms with [PARTENER_NOMINATIV]?",tp:"F"}
+  {t:"Vă place să atingeți orgasmul în același timp?",en:"Do you like reaching orgasm at the same time?",tp:"B",id:"oc_01",pairId:"oc_01"},
+  {t:"Îți place să-l lași pe [PARTENER_NOMINATIV] să termine primul?",en:"Do you like letting [PARTENER_NOMINATIV] orgasm first?",tp:"F",id:"oc_02f",pairId:"oc_02"},
+  {t:"Îți place să o lași pe [PARTENER_NOMINATIV] să termine prima?",en:"Do you like letting [PARTENER_NOMINATIV] finish first?",tp:"M",id:"oc_02m",pairId:"oc_02"},
+  {t:"Îți place să ajungi la orgasm înaintea [PARTENER_GENITIV]?",en:"Do you like reaching orgasm before [PARTENER_NOMINATIV]?",tp:"B",id:"oc_03",pairId:"oc_03"},
+  {t:"Îți place să prelungești momentul orgasmului?",en:"Do you like prolonging the moment of orgasm?",tp:"B",id:"oc_04",pairId:"oc_04"},
+  {t:"Îți place să o stimulezi pe [PARTENER_NOMINATIV] până la orgasm de mai multe ori?",en:"Do you like stimulating [PARTENER_NOMINATIV] to orgasm multiple times?",tp:"M",id:"oc_05m",pairId:"oc_05"},
+  {t:"Îți place să-l stimulezi pe [PARTENER_NOMINATIV] până la orgasm de mai multe ori?",en:"Do you enjoy stimulating [PARTENER_NOMINATIV] to orgasm multiple times?",tp:"F",id:"oc_05f",pairId:"oc_05"},
+  {t:"Îți place să fii stimulat/ă de [PARTENER_NOMINATIV] până la orgasm de mai multe ori?",en:"Do you enjoy being stimulated to orgasm multiple times by [PARTENER_NOMINATIV]?",tp:"B",id:"oc_06",pairId:"oc_06"},
+  {t:"Îți place să folosești jucării pentru a obține orgasmul cu [PARTENER_NOMINATIV]?",en:"Do you like using toys to achieve orgasm with [PARTENER_NOMINATIV]?",tp:"B",id:"oc_07",pairId:"oc_07"},
+  {t:"Îți place orgasmul vaginal când faci dragoste cu [PARTENER_NOMINATIV]?",en:"Do you enjoy vaginal orgasm when making love with [PARTENER_NOMINATIV]?",tp:"F",id:"oc_solo_vaginal",pairId:"oc_solo_vaginal"},
+  {t:"Îți place orgasmul clitoridian cu [PARTENER_NOMINATIV]?",en:"Do you enjoy clitoral orgasm with [PARTENER_NOMINATIV]?",tp:"F",id:"oc_solo_clitoral",pairId:"oc_solo_clitoral"},
+  {t:"Îți place să ai orgasm multiplu cu [PARTENER_NOMINATIV]?",en:"Do you enjoy multiple orgasms with [PARTENER_NOMINATIV]?",tp:"F",id:"oc_solo_multiplu",pairId:"oc_solo_multiplu"}
 ]},
 
 {name:"Senzorial și ambiental", group:"style", q:[
@@ -1979,35 +1979,35 @@ var CATS = [
 ]},
 
 {name:"Masturbare și auto-explorare", group:"discovery", q:[
-  {t:"Îți place să te masturbezi singur/ă?",en:"Do you enjoy masturbating alone?",tp:"B"},
-  {t:"Vă place să vă masturbați împreună?",en:"Do you like masturbating together?",tp:"B"},
-  {t:"Îți place să o privești pe [PARTENER_NOMINATIV] masturbându-se?",en:"Do you like watching [PARTENER_NOMINATIV] masturbate?",tp:"M"},
-  {t:"Îți place să-l privești pe [PARTENER_NOMINATIV] masturbându-se?",en:"Do you like watching [PARTENER_NOMINATIV] masturbate?",tp:"F"},
-  {t:"Îți place să te masturbezi în fața [PARTENER_GENITIV]?",en:"Do you like masturbating in front of [PARTENER_NOMINATIV]?",tp:"B"},
-  {t:"Îți place să o ajuți pe [PARTENER_NOMINATIV] când se masturbează?",en:"Do you like helping [PARTENER_NOMINATIV] when she masturbates?",tp:"M"},
-  {t:"Îți place să-l ajuți pe [PARTENER_NOMINATIV] când se masturbează?",en:"Do you like helping [PARTENER_NOMINATIV] when he masturbates?",tp:"F"},
-  {t:"Îți place să fii ajutată de [PARTENER_NOMINATIV] când te masturbezi?",en:"Do you enjoy being helped by [PARTENER_NOMINATIV] when you masturbate?",tp:"F"},
-  {t:"Îți place să fii ajutat de [PARTENER_NOMINATIV] când te masturbezi?",en:"Do you enjoy being helped by [PARTENER_NOMINATIV] when you masturbate?",tp:"M"},
-  {t:"Îți place să-l privești pe [PARTENER_NOMINATIV] când te stimulează cu jucării?",en:"Do you like watching [PARTENER_NOMINATIV] stimulate you with toys?",tp:"F"},
-  {t:"Îți place să folosești jucării erotice singur/ă?",en:"Do you like using erotic toys alone?",tp:"B"},
-  {t:"Îți place stimularea clitorisului?",en:"Do you enjoy clitoral stimulation?",tp:"F"},
-  {t:"Vizionezi pornografie individual, fără [PARTENER_NOMINATIV]?",en:"Do you watch pornography alone, without [PARTENER_NOMINATIV]?",tp:"B"},
-  {t:"Ești confortabil/ă dacă [PARTENER_NOMINATIV] vizionează pornografie individual?",en:"Are you comfortable with [PARTENER_NOMINATIV] watching pornography alone?",tp:"B"},
-  {t:"Ai vrea să știi dacă [PARTENER_NOMINATIV] vizionează pornografie?",en:"Would you want to know if [PARTENER_NOMINATIV] watches pornography?",tp:"B"}
+  {t:"Îți place să te masturbezi singur/ă?",en:"Do you enjoy masturbating alone?",tp:"B",id:"ma_01",pairId:"ma_01"},
+  {t:"Vă place să vă masturbați împreună?",en:"Do you like masturbating together?",tp:"B",id:"ma_02",pairId:"ma_02"},
+  {t:"Îți place să o privești pe [PARTENER_NOMINATIV] masturbându-se?",en:"Do you like watching [PARTENER_NOMINATIV] masturbate?",tp:"M",id:"ma_watch_m",pairId:"ma_watch"},
+  {t:"Îți place să-l privești pe [PARTENER_NOMINATIV] masturbându-se?",en:"Do you like watching [PARTENER_NOMINATIV] masturbate?",tp:"F",id:"ma_watch_f",pairId:"ma_watch"},
+  {t:"Îți place să te masturbezi în fața [PARTENER_GENITIV]?",en:"Do you like masturbating in front of [PARTENER_NOMINATIV]?",tp:"B",id:"ma_03",pairId:"ma_03"},
+  {t:"Îți place să o ajuți pe [PARTENER_NOMINATIV] când se masturbează?",en:"Do you like helping [PARTENER_NOMINATIV] when she masturbates?",tp:"M",id:"ma_help_m",pairId:"ma_help"},
+  {t:"Îți place să-l ajuți pe [PARTENER_NOMINATIV] când se masturbează?",en:"Do you like helping [PARTENER_NOMINATIV] when he masturbates?",tp:"F",id:"ma_help_f",pairId:"ma_help"},
+  {t:"Îți place să fii ajutată de [PARTENER_NOMINATIV] când te masturbezi?",en:"Do you enjoy being helped by [PARTENER_NOMINATIV] when you masturbate?",tp:"F",id:"ma_beinghelped_f",pairId:"ma_beinghelped"},
+  {t:"Îți place să fii ajutat de [PARTENER_NOMINATIV] când te masturbezi?",en:"Do you enjoy being helped by [PARTENER_NOMINATIV] when you masturbate?",tp:"M",id:"ma_beinghelped_m",pairId:"ma_beinghelped"},
+  {t:"Îți place să-l privești pe [PARTENER_NOMINATIV] când te stimulează cu jucării?",en:"Do you like watching [PARTENER_NOMINATIV] stimulate you with toys?",tp:"F",id:"ma_solo_watchtoys",pairId:"ma_solo_watchtoys"},
+  {t:"Îți place să folosești jucării erotice singur/ă?",en:"Do you like using erotic toys alone?",tp:"B",id:"ma_04",pairId:"ma_04"},
+  {t:"Îți place stimularea clitorisului?",en:"Do you enjoy clitoral stimulation?",tp:"F",id:"ma_solo_clitoral",pairId:"ma_solo_clitoral"},
+  {t:"Vizionezi pornografie individual, fără [PARTENER_NOMINATIV]?",en:"Do you watch pornography alone, without [PARTENER_NOMINATIV]?",tp:"B",id:"ma_05",pairId:"ma_05"},
+  {t:"Ești confortabil/ă dacă [PARTENER_NOMINATIV] vizionează pornografie individual?",en:"Are you comfortable with [PARTENER_NOMINATIV] watching pornography alone?",tp:"B",id:"ma_06",pairId:"ma_06"},
+  {t:"Ai vrea să știi dacă [PARTENER_NOMINATIV] vizionează pornografie?",en:"Would you want to know if [PARTENER_NOMINATIV] watches pornography?",tp:"B",id:"ma_07",pairId:"ma_07"}
 ]},
 
 {name:"Jucării și accesorii", group:"discovery", q:[
-  {t:"Vă place să folosiți lubrifianți aromați împreună?",en:"Do you like using flavored lubricants?",tp:"B"},
-  {t:"Vă place să folosiți lubrifianți care încălzesc împreună?",en:"Do you like using warming lubricants?",tp:"B"},
-  {t:"Îți place să fii stimulată cu jet de apă (duș)?",en:"Do you enjoy water jet stimulation (shower)?",tp:"F"},
-  {t:"Îți place ca [PARTENER_NOMINATIV] să te stimuleze clitoridian sau să te penetreze cu un vibrator?",en:"Do you enjoy [PARTENER_NOMINATIV] using a vibrator on you?",tp:"F",abcd:["Stimulare clitoridiană","Penetrare cu vibrator","Ambele","Niciuna"],abcden:["Clitoral stimulation","Penetration with vibrator","Both","Neither"]},
-  {t:"Ți-ar plăcea să o stimulezi clitoridian sau să o penetrezi pe [PARTENER_NOMINATIV] cu un vibrator?",en:"Would you enjoy stimulating [PARTENER_NOMINATIV] with a vibrator?",tp:"M"},
-  {t:"Vă place să folosiți vibratoare cu telecomandă — unul pe celălalt?",en:"Do you like using remote-controlled vibrators together?",tp:"B"},
-  {t:"Vă place să folosiți jucării interactive (controlate prin app) — unul pe celălalt?",en:"Do you like using app-controlled toys together?",tp:"B"},
-  {t:"Îți place ca [PARTENER_NOMINATIV] să te penetreze cu un dildo?",en:"Do you enjoy [PARTENER_NOMINATIV] using a dildo on you?",tp:"F"},
-  {t:"Ți-ar plăcea să o penetrezi pe [PARTENER_NOMINATIV] cu un dildo?",en:"Would you enjoy using a dildo on [PARTENER_NOMINATIV]?",tp:"M"},
-  {t:"Ți-ar plăcea ca [PARTENER_NOMINATIV] să poarte un inel pentru penis?",en:"Would you like [PARTENER_NOMINATIV] to wear a penis ring?",tp:"F"},
-  {t:"Ți-ar plăcea să porți un inel pentru penis cu [PARTENER_NOMINATIV]?",en:"Would you enjoy wearing a penis ring with [PARTENER_NOMINATIV]?",tp:"M"}
+  {t:"Vă place să folosiți lubrifianți aromați împreună?",en:"Do you like using flavored lubricants?",tp:"B",id:"ja_01",pairId:"ja_01"},
+  {t:"Vă place să folosiți lubrifianți care încălzesc împreună?",en:"Do you like using warming lubricants?",tp:"B",id:"ja_02",pairId:"ja_02"},
+  {t:"Îți place să fii stimulată cu jet de apă (duș)?",en:"Do you enjoy water jet stimulation (shower)?",tp:"F",id:"ja_solo_jetapa",pairId:"ja_solo_jetapa"},
+  {t:"Îți place ca [PARTENER_NOMINATIV] să te stimuleze clitoridian sau să te penetreze cu un vibrator?",en:"Do you enjoy [PARTENER_NOMINATIV] using a vibrator on you?",tp:"F",id:"ja_vibrator_f",pairId:"ja_vibrator",abcd:["Stimulare clitoridiană","Penetrare cu vibrator","Ambele","Niciuna"],abcden:["Clitoral stimulation","Penetration with vibrator","Both","Neither"]},
+  {t:"Ți-ar plăcea să o stimulezi clitoridian sau să o penetrezi pe [PARTENER_NOMINATIV] cu un vibrator?",en:"Would you enjoy stimulating [PARTENER_NOMINATIV] clitorally or penetrating her with a vibrator?",tp:"M",id:"ja_vibrator_m",pairId:"ja_vibrator",abcd:["Stimulare clitoridiană","Penetrare cu vibrator","Ambele","Niciuna"],abcden:["Clitoral stimulation","Penetration with vibrator","Both","Neither"]},
+  {t:"Vă place să folosiți vibratoare cu telecomandă — unul pe celălalt?",en:"Do you like using remote-controlled vibrators together?",tp:"B",id:"ja_03",pairId:"ja_03"},
+  {t:"Vă place să folosiți jucării interactive (controlate prin app) — unul pe celălalt?",en:"Do you like using app-controlled toys together?",tp:"B",id:"ja_04",pairId:"ja_04"},
+  {t:"Îți place ca [PARTENER_NOMINATIV] să te penetreze cu un dildo?",en:"Do you enjoy [PARTENER_NOMINATIV] using a dildo on you?",tp:"F",id:"ja_dildo_f",pairId:"ja_dildo"},
+  {t:"Ți-ar plăcea să o penetrezi pe [PARTENER_NOMINATIV] cu un dildo?",en:"Would you enjoy using a dildo on [PARTENER_NOMINATIV]?",tp:"M",id:"ja_dildo_m",pairId:"ja_dildo"},
+  {t:"Ți-ar plăcea ca [PARTENER_NOMINATIV] să poarte un inel pentru penis?",en:"Would you like [PARTENER_NOMINATIV] to wear a penis ring?",tp:"F",id:"ja_cockring_f",pairId:"ja_cockring"},
+  {t:"Ți-ar plăcea să porți un inel pentru penis cu [PARTENER_NOMINATIV]?",en:"Would you enjoy wearing a penis ring with [PARTENER_NOMINATIV]?",tp:"M",id:"ja_cockring_m",pairId:"ja_cockring"}
 ]},
 
 {name:"Locații și risc", group:"discovery", q:[
@@ -2099,18 +2099,18 @@ var CATS = [
 ]},
 
 {name:"Swing și experiențe de grup", group:"discovery", q:[
-  {t:"Ați fi confortabili să faceți sex în aceeași cameră cu alte cupluri?",en:"Would you be comfortable having sex in the same room with other couples?",tp:"B"},
-  {t:"Ți-ar plăcea ideea de schimb de parteneri cu [PARTENER_NOMINATIV]?",en:"Would you like the idea of partner swapping with [PARTENER_NOMINATIV]?",tp:"B"},
-  {t:"V-ar plăcea să încercați sex cu alt cuplu, tu și [PARTENER_NOMINATIV]?",en:"Would you and [PARTENER_NOMINATIV] like to try sex with another couple?",tp:"B"},
-  {t:"Ai prefera full swap sau soft swap?",en:"Would you prefer a full swap or a soft swap?",tp:"B",abcd:["Full swap (schimb complet)","Soft swap (preludiu & oral)","Amândouă","Niciuna"],abcden:["Full swap","Soft swap (foreplay & oral)","Both","Neither"]},
-  {t:"Te-ar excita un FFM (două femei, un bărbat) cu [PARTENER_NOMINATIV]?",en:"Would a FFM threesome (two women, one man) with [PARTENER_NOMINATIV] excite you?",tp:"B"},
-  {t:"Te-ar excita un MMF (doi bărbați, o femeie) cu [PARTENER_NOMINATIV]?",en:"Would a MMF threesome (two men, one woman) with [PARTENER_NOMINATIV] excite you?",tp:"B"},
-  {t:"Te-ar excita să-l privești pe [PARTENER_NOMINATIV] făcând sex cu altcineva?",en:"Would watching [PARTENER_NOMINATIV] have sex with someone else excite you?",tp:"F"},
-  {t:"Te-ar excita să faci sex cu altcineva în timp ce [PARTENER_NOMINATIV] te privește?",en:"Would having sex with someone else while [PARTENER_NOMINATIV] watches excite you?",tp:"B"},
-  {t:"Te-ar excita combinația oral-vaginal simultan?",en:"Would simultaneous oral-vaginal stimulation excite you?",tp:"F"},
-  {t:"Te-ar excita combinația oral-vaginal-anal simultan?",en:"Would simultaneous oral-vaginal-anal stimulation excite you?",tp:"F"},
-  {t:"Te-ar excita să participi sau să o vezi pe [PARTENER_NOMINATIV] în combinația oral-vaginal simultan?",en:"Would you be excited to participate or watch [PARTENER_NOMINATIV] in an oral-vaginal combination?",tp:"M"},
-  {t:"Te-ar excita să participi sau să o vezi pe [PARTENER_NOMINATIV] în combinația oral-vaginal-anal simultan?",en:"Would you be excited to participate or watch [PARTENER_NOMINATIV] in an oral-vaginal-anal combination?",tp:"M"}
+  {t:"Ați fi confortabili să faceți sex în aceeași cameră cu alte cupluri?",en:"Would you be comfortable having sex in the same room with other couples?",tp:"B",id:"sw_01",pairId:"sw_01"},
+  {t:"Ți-ar plăcea ideea de schimb de parteneri cu [PARTENER_NOMINATIV]?",en:"Would you like the idea of partner swapping with [PARTENER_NOMINATIV]?",tp:"B",id:"sw_02",pairId:"sw_02"},
+  {t:"V-ar plăcea să încercați sex cu alt cuplu, tu și [PARTENER_NOMINATIV]?",en:"Would you and [PARTENER_NOMINATIV] like to try sex with another couple?",tp:"B",id:"sw_03",pairId:"sw_03"},
+  {t:"Ai prefera full swap sau soft swap?",en:"Would you prefer a full swap or a soft swap?",tp:"B",id:"sw_04",pairId:"sw_04",abcd:["Full swap (schimb complet)","Soft swap (preludiu & oral)","Amândouă","Niciuna"],abcden:["Full swap","Soft swap (foreplay & oral)","Both","Neither"]},
+  {t:"Te-ar excita un FFM (două femei, un bărbat) cu [PARTENER_NOMINATIV]?",en:"Would a FFM threesome (two women, one man) with [PARTENER_NOMINATIV] excite you?",tp:"B",id:"sw_05",pairId:"sw_05"},
+  {t:"Te-ar excita un MMF (doi bărbați, o femeie) cu [PARTENER_NOMINATIV]?",en:"Would a MMF threesome (two men, one woman) with [PARTENER_NOMINATIV] excite you?",tp:"B",id:"sw_06",pairId:"sw_06"},
+  {t:"Te-ar excita să-l privești pe [PARTENER_NOMINATIV] făcând sex cu altcineva?",en:"Would watching [PARTENER_NOMINATIV] have sex with someone else excite you?",tp:"F",id:"sw_solo_watchpartner",pairId:"sw_solo_watchpartner"},
+  {t:"Te-ar excita să faci sex cu altcineva în timp ce [PARTENER_NOMINATIV] te privește?",en:"Would having sex with someone else while [PARTENER_NOMINATIV] watches excite you?",tp:"B",id:"sw_07",pairId:"sw_07"},
+  {t:"Te-ar excita combinația oral-vaginal simultan?",en:"Would simultaneous oral-vaginal stimulation excite you?",tp:"F",id:"sw_oralvaginal_f",pairId:"sw_oralvaginal"},
+  {t:"Te-ar excita combinația oral-vaginal-anal simultan?",en:"Would simultaneous oral-vaginal-anal stimulation excite you?",tp:"F",id:"sw_oralvaginalanal_f",pairId:"sw_oralvaginalanal"},
+  {t:"Te-ar excita să participi sau să o vezi pe [PARTENER_NOMINATIV] în combinația oral-vaginal simultan?",en:"Would you be excited to participate or watch [PARTENER_NOMINATIV] in an oral-vaginal combination?",tp:"M",id:"sw_oralvaginal_m",pairId:"sw_oralvaginal"},
+  {t:"Te-ar excita să participi sau să o vezi pe [PARTENER_NOMINATIV] în combinația oral-vaginal-anal simultan?",en:"Would you be excited to participate or watch [PARTENER_NOMINATIV] in an oral-vaginal-anal combination?",tp:"M",id:"sw_oralvaginalanal_m",pairId:"sw_oralvaginalanal"}
 ]},
 
 {name:"Orientare și atracție", group:"discovery", q:[
@@ -4154,32 +4154,86 @@ function calcResults(){
     var a2=S.ans2[cat.name]||[];
     var qs1=getFiltered(ci,1), qs2=getFiltered(ci,2);
     var cs=0,cc=0,details=[];
-    var len=Math.max(a1.length,a2.length,qs1.length,qs2.length);
     // Câte răspunsuri REALE (non-skip, non-null) are fiecare partener în categorie.
     // Folosit ca să știm, când nu iese niciun scor, CINE a ales "Prefer să nu răspund".
     var real1=0, real2=0;
-    for(var ri=0;ri<len;ri++){
+    var lenReal=Math.max(a1.length,a2.length,qs1.length,qs2.length);
+    for(var ri=0;ri<lenReal;ri++){
       if(a1[ri]!=null && a1[ri]!=='skip') real1++;
       if(a2[ri]!=null && a2[ri]!=='skip') real2++;
     }
 
-    for(var i=0;i<len;i++){
-      var qo=qs1[i]||qs2[i]||cat.q[i]||{};
-      var v1=a1[i],v2=a2[i];
-      // Skip null (back button) SAU 'skip' (utilizatorul a ales "Prefer să nu răspund").
-      // Ambele sunt excluse din calcul — un skip nu mai e tratat ca dezacord total.
-      if(v1==null||v2==null||v1==='skip'||v2==='skip'){details.push({t:qo.t||'',en:qo.en||'',p1:(v1==='skip'?null:v1),p2:(v2==='skip'?null:v2),diff:null,isABCD:!!(qo.abcd),opts:qo.abcd||null,optsEn:qo.abcden||null});continue;}
-      var sc;
-      if(qo.abcd){
-        sc=abcdScore(v1,v2,qo.abcdCategorical);
-        if(sc===null){details.push({t:qo.t||'',en:qo.en||'',p1:v1,p2:v2,diff:null,isABCD:true,opts:qo.abcd,optsEn:qo.abcden||null});continue;}
-      } else { sc=5-Math.abs(v1-v2); }
-      cs+=sc; cc++;
-      details.push({t:qo.t||'',en:qo.en||'',p1:v1,p2:v2,diff:qo.abcd?(v1===v2?0:2):Math.abs(v1-v2),isABCD:!!(qo.abcd),opts:qo.abcd||null,optsEn:qo.abcden||null});
-      var g=cat.group;
-      if(g==='core'){groups.core.s+=sc;groups.core.c++;}
-      else if(g==='style'){groups.style.s+=sc;groups.style.c++;}
-      else{groups.disc.s+=sc;groups.disc.c++;}
+    // usesPairId: categoriile unde M/F au liste de lungimi diferite (Orgasm și climax,
+    // Masturbare și auto-explorare, Jucării și accesorii, Swing și experiențe de grup) au
+    // primit pairId pe fiecare întrebare, ca legătura M/F să se facă prin conținut, nu prin
+    // poziție în listă. Restul categoriilor (fără pairId pe niciuna din întrebări) folosesc
+    // EXACT logica veche, neschimbată, mai jos în else — comportament identic cu v64.
+    var usesPairId = cat.q.some(function(q){ return !!q.pairId; });
+
+    if(usesPairId){
+      var pairOrder=[], seenPairs={};
+      cat.q.forEach(function(q){
+        if(q.pairId && !seenPairs[q.pairId]){ seenPairs[q.pairId]=true; pairOrder.push(q.pairId); }
+      });
+      pairOrder.forEach(function(pid){
+        var idx1=-1, idx2=-1;
+        for(var x=0;x<qs1.length;x++){ if(qs1[x].pairId===pid){ idx1=x; break; } }
+        for(var y=0;y<qs2.length;y++){ if(qs2[y].pairId===pid){ idx2=y; break; } }
+        if(idx1<0 && idx2<0) return; // pairId nu se aplică la niciunul (nu ar trebui să se întâmple)
+        var q1=idx1>=0?qs1[idx1]:null, q2=idx2>=0?qs2[idx2]:null;
+        var qo=q1||q2||{};
+        var v1raw=idx1>=0?a1[idx1]:undefined, v2raw=idx2>=0?a2[idx2]:undefined;
+
+        if(idx1>=0 && idx2>=0){
+          // Pereche comparabilă (ambii au o întrebare cu acest pairId — pereche reală M/F,
+          // sau întrebare B/anatomică valabilă pt amândoi într-un cuplu de același sex).
+          var v1=v1raw, v2=v2raw;
+          if(v1==null||v2==null||v1==='skip'||v2==='skip'){
+            details.push({t:qo.t||'',en:qo.en||'',p1:(v1==='skip'?null:v1),p2:(v2==='skip'?null:v2),diff:null,isABCD:!!(qo.abcd),opts:qo.abcd||null,optsEn:qo.abcden||null});
+            return;
+          }
+          var sc;
+          if(qo.abcd){
+            sc=abcdScore(v1,v2,qo.abcdCategorical);
+            if(sc===null){details.push({t:qo.t||'',en:qo.en||'',p1:v1,p2:v2,diff:null,isABCD:true,opts:qo.abcd,optsEn:qo.abcden||null});return;}
+          } else { sc=5-Math.abs(v1-v2); }
+          cs+=sc; cc++;
+          details.push({t:qo.t||'',en:qo.en||'',p1:v1,p2:v2,diff:qo.abcd?(v1===v2?0:2):Math.abs(v1-v2),isABCD:!!(qo.abcd),opts:qo.abcd||null,optsEn:qo.abcden||null});
+          var g=cat.group;
+          if(g==='core'){groups.core.s+=sc;groups.core.c++;}
+          else if(g==='style'){groups.style.s+=sc;groups.style.c++;}
+          else{groups.disc.s+=sc;groups.disc.c++;}
+        } else {
+          // Solo/mono-sex: doar unul dintre parteneri are întrebarea cu acest pairId (ex.
+          // orgasm vaginal, stimulare clitoridiană). Nu intră în scor — apare doar ca
+          // informație la persoana care a răspuns, "—" la celălalt, exact ca la un skip.
+          var vSolo = idx1>=0?v1raw:v2raw;
+          var p1val = idx1>=0 ? (vSolo==='skip'?null:vSolo) : null;
+          var p2val = idx2>=0 ? (vSolo==='skip'?null:vSolo) : null;
+          if(p1val==null && p2val==null) return; // nimeni n-a răspuns, nimic de arătat
+          details.push({t:qo.t||'',en:qo.en||'',p1:p1val,p2:p2val,diff:null,isABCD:!!(qo.abcd),opts:qo.abcd||null,optsEn:qo.abcden||null});
+        }
+      });
+    } else {
+      var len=Math.max(a1.length,a2.length,qs1.length,qs2.length);
+      for(var i=0;i<len;i++){
+        var qo2=qs1[i]||qs2[i]||cat.q[i]||{};
+        var v1b=a1[i],v2b=a2[i];
+        // Skip null (back button) SAU 'skip' (utilizatorul a ales "Prefer să nu răspund").
+        // Ambele sunt excluse din calcul — un skip nu mai e tratat ca dezacord total.
+        if(v1b==null||v2b==null||v1b==='skip'||v2b==='skip'){details.push({t:qo2.t||'',en:qo2.en||'',p1:(v1b==='skip'?null:v1b),p2:(v2b==='skip'?null:v2b),diff:null,isABCD:!!(qo2.abcd),opts:qo2.abcd||null,optsEn:qo2.abcden||null});continue;}
+        var sc2;
+        if(qo2.abcd){
+          sc2=abcdScore(v1b,v2b,qo2.abcdCategorical);
+          if(sc2===null){details.push({t:qo2.t||'',en:qo2.en||'',p1:v1b,p2:v2b,diff:null,isABCD:true,opts:qo2.abcd,optsEn:qo2.abcden||null});continue;}
+        } else { sc2=5-Math.abs(v1b-v2b); }
+        cs+=sc2; cc++;
+        details.push({t:qo2.t||'',en:qo2.en||'',p1:v1b,p2:v2b,diff:qo2.abcd?(v1b===v2b?0:2):Math.abs(v1b-v2b),isABCD:!!(qo2.abcd),opts:qo2.abcd||null,optsEn:qo2.abcden||null});
+        var g2=cat.group;
+        if(g2==='core'){groups.core.s+=sc2;groups.core.c++;}
+        else if(g2==='style'){groups.style.s+=sc2;groups.style.c++;}
+        else{groups.disc.s+=sc2;groups.disc.c++;}
+      }
     }
     // Când nu există NICIO pereche comparabilă (cc===0), categoria nu primește scor.
     // skippedBy: 'p1' / 'p2' / 'both' — cine a ales "Prefer să nu răspund" la tot.
