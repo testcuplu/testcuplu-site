@@ -1,4 +1,52 @@
-<!-- VERSIUNE: v65 · 30 iulie 2026 · pornește de la v64 și ADAUGĂ: fix misalignment M/F (P0-ids din audit) — pairId pe întrebările din 4 categorii (Orgasm și climax, Masturbare și auto-explorare, Jucării și accesorii, Swing și experiențe de grup), calcResults() comparare prin pairId doar acolo unde există (celelalte 21 de categorii neatinse, logică veche identică). 4 întrebări mono-sex fără echivalent devin "solo" (informative, exclusă din scor, afișează "—" la partenerul care nu are întrebarea, ca la skip). Perechea vibrator din Jucării: aliniată formatul M pe ABCD ca la F, ca să fie comparabilă. ATINGE scorul — testează separat de v64, în special cele 4 categorii. -->
+<!-- VERSIUNE: v75 · 5 august 2026 · pornește de la v74, curățare cod + conformitate legală,
+     fără modificări de logică de scor sau UI vizibilă:
+     1) Eliminat link-ul "SOL" (către ec.europa.eu/consumers/odr) din ambele footere.
+        Platforma europeană ODR a fost desființată oficial pe 20 iulie 2025 (Regulamentul
+        UE 2024/3228, care abrogă Regulamentul 524/2013). Comercianții nu mai au obligația
+        legală de a referi la ea; sursele juridice recomandă eliminarea completă a
+        referinței, nu doar lăsarea unui link mort. Link-ul "SAL" (anpc.ro, mecanismul
+        românesc) rămâne neatins — acela e valabil și obligatoriu în continuare.
+     2) Șters codul mort confirmat prin verificare directă (nu presupunere):
+        - cheia de traducere "ageCheck" (RO+EN), neutilizată nicăieri în cod — nu se
+          confundă cu variabila activă "_ageChecked" (cu underscore), care rămâne intactă.
+        - funcția submitEmail() în întregime, împreună cu FORMSPREE_URL folosit doar de ea.
+          Trimitea un REZUMAT parțial (nume cuplu, 3 procente pe zonă, top 3 puncte forte)
+          prin Formspree — opusul principiului de bază al proiectului (raportul din email
+          trebuie să fie complet). Confirmat neconectată la niciun element real din HTML
+          (elementele email-input/email-ok/.email-submit-btn de care depindea nu există ca
+          markup, doar ca referințe JS moarte cu verificări defensive if(el)). Risc latent
+          eliminat: nu mai poate fi reconectată din greșeală într-o versiune viitoare.
+        NU s-a atins showPaywallGate() — verificat de două ori, e activ, apelat real în
+        flow-ul de tranziție între zone. NU s-a atins submitReview() — activ, corect,
+        corespunde cu ce declară politica de confidențialitate despre Formspree.
+     3) Verificat cu test_motor_scor.js: toate cele 4 teste trec (date random pe toate cele
+        25 categorii, pairId identice→100%, pairId opuse→scor scăzut, no_overlap corect).
+
+     ═══════════════════════════════════════════════════════
+
+     VERSIUNE: v74 · 3 august 2026 · pornește de la v73 și REPARĂ bug-ul real
+     pentru care fix-ul din v73 nu funcționa — confirmat cu dovadă vizuală directă
+     de la Nicolae (capturi cu textul încă în română, chiar pe v73):
+     1) BUG REAL, cauza exactă a "fix-ul din v73 n-a schimbat nimic": funcția
+        renderWelcome() folosea variabila isEN în liniile noi adăugate în v73,
+        DAR isEN era declarată mai jos, în ALTĂ linie din ACEEAȘI funcție
+        ("var isEN = LANG==='en';", mai târziu în corpul funcției). În
+        JavaScript, "var" e "hoisted" (ridicat la începutul funcției), dar
+        ATRIBUIREA nu — deci la punctul unde o citeam eu, isEN exista ca
+        variabilă, dar era încă "undefined" (deci falsy). Rezultat: ramura
+        "isEN ? engleză : română" alegea mereu română, indiferent de limba
+        reală selectată — silențios, fără nicio eroare în consolă. Exact bug-ul
+        care făcea ca fix-ul din v73 să pară că "nu s-a întâmplat nimic".
+        Reparat înlocuind isEN cu verificare directă (LANG==='en'), care nu
+        depinde deloc de ordinea declarațiilor din funcție.
+     2) Capsula "testcuplu.ro" din footer (v7-mark) nu era doar de altă culoare
+        — avea cu totul alt tratament vizual (font italic serif, fără capsulă/
+        fundal) față de cea din hero-ul de bun venit (Georgia non-italic, în
+        capsulă rotunjită cu fundal translucid). Nu ajungea să pară "la fel"
+        doar aliniind gradientul de culoare (cum am făcut în v72) — am
+        înlocuit complet markup-ul footer-ului cu ACELAȘI cod folosit în hero,
+        ca cele două să fie identice, nu doar asemănătoare.
+     Verificat: sintaxă OK, toate 25 categorii OK pe date random, coverage 3/3. -->
 <!DOCTYPE html>
 <html lang="ro">
 <head>
@@ -566,53 +614,6 @@ input:focus{outline:none;border-color:#db2777;}
 .brand-dark-pill{display:inline-flex;align-items:center;gap:8px;background:rgba(244,63,94,0.15);border:1px solid rgba(244,63,94,0.3);border-radius:999px;padding:6px 16px;}
 .tc-lbl-small{font-size:10px;font-weight:900;color:#fff;letter-spacing:-0.5px;}
 
-/* ═══ COMING SOON ═══════════════════════════════════════════════ */
-#s-comingsoon{background:#0a0e1a;color:#fff;min-height:100vh;display:none;align-items:center;justify-content:center;padding:20px;position:relative;overflow-x:hidden;font-family:'DM Sans',-apple-system,sans-serif;}
-#s-comingsoon.active{display:flex;}
-#s-comingsoon::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle at 30% 40%,rgba(236,72,153,0.15),transparent 50%),radial-gradient(circle at 70% 60%,rgba(168,85,247,0.15),transparent 50%);pointer-events:none;z-index:0;}
-.cs-container{max-width:520px;width:100%;text-align:center;position:relative;z-index:1;}
-.cs-lang-switch{display:inline-flex;background:rgba(255,255,255,0.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);border-radius:30px;padding:4px;margin-bottom:32px;}
-.cs-lang-switch button{background:transparent;border:none;color:rgba(255,255,255,0.6);padding:8px 18px;border-radius:30px;cursor:pointer;font-size:13px;font-family:inherit;font-weight:700;transition:all 0.3s;}
-.cs-lang-switch button.active{background:#fff;color:#0a0e1a;}
-.cs-logo{display:inline-flex;align-items:center;background:rgba(236,72,153,0.12);border:1px solid rgba(236,72,153,0.3);border-radius:30px;padding:10px 22px;margin-bottom:28px;font-size:18px;font-weight:900;letter-spacing:-0.5px;}
-.cs-logo .cs-logo-ro{background:linear-gradient(135deg,#ec4899,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.cs-h1{font-size:clamp(28px,7vw,42px);font-weight:900;line-height:1.1;margin-bottom:12px;letter-spacing:-1px;color:#fff;}
-.cs-h1 .cs-grad{background:linear-gradient(135deg,#ec4899,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.cs-subtitle{font-size:16px;color:rgba(255,255,255,0.6);margin-bottom:40px;line-height:1.5;}
-.cs-countdown-label{font-size:12px;letter-spacing:3px;color:#ec4899;font-weight:700;margin-bottom:16px;text-transform:uppercase;}
-.cs-cta-message{margin-bottom:40px;padding:0 8px;}
-.cs-countdown{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:40px;}
-.cs-cd-box{background:linear-gradient(135deg,rgba(236,72,153,0.15),rgba(168,85,247,0.15));border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:18px 8px;backdrop-filter:blur(10px);}
-.cs-cd-num{font-size:clamp(28px,7vw,38px);font-weight:900;line-height:1;background:linear-gradient(135deg,#fff,#cbd5e1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.cs-cd-unit{font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,0.5);margin-top:8px;font-weight:700;}
-.cs-promo{background:linear-gradient(135deg,#ec4899,#a855f7);border-radius:18px;padding:24px;margin-bottom:32px;text-align:left;position:relative;overflow:hidden;box-shadow:0 20px 40px -10px rgba(236,72,153,0.3);}
-.cs-promo::before{content:'🎁';position:absolute;font-size:120px;right:-20px;top:50%;transform:translateY(-50%);opacity:0.12;}
-.cs-promo-label{font-size:11px;letter-spacing:2px;color:rgba(255,255,255,0.9);font-weight:700;margin-bottom:8px;text-transform:uppercase;}
-.cs-promo-text{font-size:18px;font-weight:900;line-height:1.3;margin-bottom:6px;color:#fff;}
-.cs-promo-value{font-size:13px;color:rgba(255,255,255,0.9);}
-.cs-form{margin-bottom:24px;}
-.cs-input{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px;color:#fff;font-size:15px;font-family:inherit;margin-bottom:12px;outline:none;transition:all 0.3s;box-sizing:border-box;}
-.cs-input:focus{border-color:#ec4899;background:rgba(255,255,255,0.08);}
-.cs-input::placeholder{color:rgba(255,255,255,0.4);}
-.cs-consent{display:flex;align-items:flex-start;gap:10px;text-align:left;margin-bottom:14px;padding:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;}
-.cs-consent input[type=checkbox]{width:20px;height:20px;margin-top:1px;accent-color:#ec4899;cursor:pointer;flex-shrink:0;}
-.cs-consent label{font-size:12px;color:rgba(255,255,255,0.7);line-height:1.5;cursor:pointer;}
-.cs-consent label a{color:#ec4899;text-decoration:underline;cursor:pointer;}
-.cs-btn{width:100%;background:linear-gradient(135deg,#ec4899,#a855f7);border:none;border-radius:12px;padding:16px;color:#fff;font-size:15px;font-weight:900;cursor:pointer;font-family:inherit;transition:transform 0.2s;box-shadow:0 10px 30px -10px rgba(236,72,153,0.5);}
-.cs-btn:hover:not(:disabled){transform:translateY(-2px);}
-.cs-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
-.cs-trust{font-size:11px;color:rgba(255,255,255,0.35);line-height:1.5;margin-top:12px;}
-.cs-footer{font-size:13px;color:rgba(255,255,255,0.4);margin-top:24px;}
-.cs-footer b{color:#ec4899;font-weight:700;}
-.cs-success{display:none;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);color:#86efac;border-radius:12px;padding:14px;font-size:14px;margin-bottom:12px;}
-.cs-success.show{display:block;}
-.cs-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:100;align-items:center;justify-content:center;padding:20px;}
-.cs-modal-bg.show{display:flex;}
-.cs-modal{background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);border-radius:16px;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;padding:28px;text-align:left;color:#fff;}
-.cs-modal h2{font-size:20px;margin-bottom:16px;background:linear-gradient(135deg,#ec4899,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.cs-modal h3{font-size:14px;margin-top:18px;margin-bottom:6px;color:#ec4899;}
-.cs-modal p{font-size:13px;color:rgba(255,255,255,0.75);line-height:1.6;margin-bottom:8px;}
-.cs-modal-close{background:rgba(255,255,255,0.08);border:none;color:#fff;padding:10px 20px;border-radius:8px;margin-top:16px;cursor:pointer;font-family:inherit;font-size:13px;}
 
 /* ═══════════════════════════════════════════════════════════
    V7 LANDING — PREMIUM EDITORIAL (înlocuiește age-gate clasic)
@@ -676,7 +677,7 @@ input:focus{outline:none;border-color:#db2777;}
 .v7-reassure .v7-sep{color:rgba(255,255,255,0.2);margin:0 8px;}
 .v7-footer{position:relative;z-index:5;text-align:center;padding:48px 24px 28px;font-family:'Inter','DM Sans',sans-serif;font-size:11px;color:rgba(255,255,255,0.3);letter-spacing:0.3px;}
 .v7-footer .v7-mark{font-family:'Fraunces',serif;font-style:italic;font-size:14px;font-weight:400;color:rgba(255,255,255,0.55);margin-bottom:14px;}
-.v7-footer .v7-mark .v7-accent{background:linear-gradient(135deg,#f43f5e,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.v7-footer .v7-mark .v7-accent{background:linear-gradient(135deg,#f43f5e,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 .v7-foot-links{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 18px;margin-bottom:14px;}
 .v7-foot-links button{background:none;border:none;color:rgba(255,255,255,0.5);text-decoration:none;font-size:11px;letter-spacing:0.5px;cursor:pointer;font-family:inherit;padding:0;transition:color 0.3s;}
 .v7-foot-links button:hover{color:#fda4af;}
@@ -766,85 +767,6 @@ input:focus{outline:none;border-color:#db2777;}
   </div>
 </div>
 
-<!-- ═══ COMING SOON ═══ -->
-<div id="s-comingsoon" class="screen">
-  <div class="cs-container">
-    <div class="cs-lang-switch">
-      <button id="cs-btn-ro" class="active" onclick="csSetLang('ro')">🇷🇴 Română</button>
-      <button id="cs-btn-en" onclick="csSetLang('en')">🇬🇧 English</button>
-    </div>
-
-    <div class="cs-logo"><span>testcuplu</span><span class="cs-logo-ro">.ro</span></div>
-
-    <h1 class="cs-h1" id="cs-h1">Test de Compatibilitate<br>pentru <span class="cs-grad">Cupluri</span></h1>
-    <p class="cs-subtitle" id="cs-subtitle">Descoperă cât de bine vă potriviți. ~255 de întrebări, 3 zone, rezultate instant.</p>
-
-    <div class="cs-countdown-label" id="cs-cd-label">Suntem aproape gata</div>
-    <div class="cs-cta-message" id="cs-cta-message">
-      <p id="cs-cta-main" style="font-size:17px;line-height:1.6;color:rgba(255,255,255,0.85);margin:0 0 12px;text-align:center;">Înscrie-te acum pentru <b>acces early bird</b>.</p>
-      <p id="cs-cta-sub" style="font-size:14px;line-height:1.55;color:rgba(255,255,255,0.65);margin:0;text-align:center;">Primii înregistrați sunt notificați primii și primesc oferta de lansare exclusivă.</p>
-    </div>
-
-    <div class="cs-promo">
-      <div class="cs-promo-label" id="cs-promo-label">🎁 Ofertă exclusivă early bird</div>
-      <div class="cs-promo-text" id="cs-promo-text">Primii 20 înregistrați primesc testul PREMIUM gratuit la lansare</div>
-      <div class="cs-promo-value" id="cs-promo-value">Valoare 29 RON · Acces complet la toate cele 3 zone</div>
-    </div>
-
-    <div class="cs-success" id="cs-success">✅ Te-am adăugat pe lista VIP! Te notificăm imediat ce lansăm.</div>
-
-    <form class="cs-form" name="beta-signup" method="POST" data-netlify="true" data-netlify-honeypot="bot-field" onsubmit="csSubmit(event)">
-      <input type="hidden" name="form-name" value="beta-signup">
-      <input type="hidden" name="language" id="cs-lang-field" value="RO">
-      <p hidden><label>Don't fill this out: <input name="bot-field"></label></p>
-
-      <input type="email" name="email" class="cs-input" id="cs-email" required placeholder="emailul tău...">
-
-      <div class="cs-consent">
-        <input type="checkbox" id="cs-gdpr" onchange="csToggleBtn()">
-        <label for="cs-gdpr" id="cs-gdpr-label">Sunt de acord să primesc emailuri despre lansarea testcuplu.ro și oferta early bird. Citește <a onclick="csOpenPrivacy(event)">politica de confidențialitate</a>.</label>
-      </div>
-
-      <button type="submit" class="cs-btn" id="cs-submit-btn" disabled>Înscrie-mă pe lista VIP →</button>
-
-      <p class="cs-trust" id="cs-trust">🔒 Folosim emailul tău doar pentru notificarea de lansare. Nu îl vindem și nu îl împărtășim cu terți. Te poți dezabona oricând.</p>
-    </form>
-
-    <div class="cs-footer" id="cs-footer">💌 Te notificăm imediat ce lansăm — fără spam, fără promovări nesolicitate</div>
-  </div>
-</div>
-
-<!-- ═══ PRIVACY MODAL FOR COMING SOON ═══ -->
-<div class="cs-modal-bg" id="cs-privacy-modal" onclick="if(event.target===this)csClosePrivacy()">
-  <div class="cs-modal">
-    <h2 id="cs-pm-title">Politica de confidențialitate</h2>
-    <p id="cs-pm-version"><b>Versiune Coming Soon · Mai 2026</b></p>
-
-    <h3 id="cs-pm-who-h">Cine colectează datele</h3>
-    <p id="cs-pm-who">testcuplu.ro (PFA în înregistrare la ONRC, datele complete vor fi adăugate după 21.05.2026). Contact: contact@testcuplu.ro</p>
-
-    <h3 id="cs-pm-what-h">Ce date colectăm</h3>
-    <p id="cs-pm-what">Doar adresa ta de email. Nimic altceva — fără nume, telefon, IP sau cookies de tracking.</p>
-
-    <h3 id="cs-pm-why-h">În ce scop</h3>
-    <p id="cs-pm-why">Pentru a te anunța când lansăm testcuplu.ro și pentru a-ți trimite oferta early bird (test PREMIUM gratuit pentru primii 20 înregistrați).</p>
-
-    <h3 id="cs-pm-how-h">Cât timp păstrăm datele</h3>
-    <p id="cs-pm-how">Până la lansare + maxim 30 de zile după. Apoi ștergere automată.</p>
-
-    <h3 id="cs-pm-share-h">Cu cine partajăm datele</h3>
-    <p id="cs-pm-share">Nu vindem și nu partajăm cu terți. Pentru recepție folosim Zoho Mail (procesator conform GDPR) și Netlify Forms (procesator UE pentru captură formular).</p>
-
-    <h3 id="cs-pm-rights-h">Drepturile tale</h3>
-    <p id="cs-pm-rights">Conform GDPR ai dreptul la: acces, rectificare, ștergere (right to be forgotten), opoziție, portabilitate, retragerea consimțământului. Trimite cererea la contact@testcuplu.ro — răspundem în maxim 30 zile.</p>
-
-    <h3 id="cs-pm-auth-h">Autoritatea de supraveghere</h3>
-    <p id="cs-pm-auth">Dacă crezi că drepturile tale au fost încălcate, poți depune plângere la ANSPDCP — www.dataprotection.ro</p>
-
-    <button class="cs-modal-close" onclick="csClosePrivacy()" id="cs-pm-close">Închide</button>
-  </div>
-</div>
-
 <!-- ═══ AGE GATE ═══ -->
 <div id="s-agegate" class="screen active fade v7-landing">
 <div class="v7-atmos"></div>
@@ -884,7 +806,7 @@ input:focus{outline:none;border-color:#db2777;}
       <div class="v7-l" id="v7-l-z">Zone</div>
     </div>
     <div class="v7-num-item">
-      <div class="v7-n">~20<span class="v7-suffix">min</span></div>
+      <div class="v7-n">~30-35<span class="v7-suffix">min</span></div>
       <div class="v7-l" id="v7-l-t">Per persoană</div>
     </div>
   </section>
@@ -919,7 +841,7 @@ input:focus{outline:none;border-color:#db2777;}
 
   <div class="v7-consent v7-fade-6" onclick="toggleAgeCheck()">
     <div class="v7-consent-box" id="age-check"></div>
-    <label id="age-checkbox-txt">Confirm că am <b>minim 18 ani</b> și sunt de acord cu <button class="v7-link" onclick="event.stopPropagation();openLegal('terms')" id="v7-terms-btn">Termenii de utilizare</button> și <button class="v7-link" onclick="event.stopPropagation();openLegal('privacy')" id="v7-privacy-btn">Politica de confidențialitate</button>.</label>
+    <label id="age-checkbox-txt">Confirm că am <b>minim 18 ani</b> și sunt de acord ca răspunsurile mele, <b>inclusiv la întrebări despre viața sexuală</b>, să fie procesate conform <button class="v7-link" onclick="event.stopPropagation();openLegal('terms')" id="v7-terms-btn">Termenilor de utilizare</button> și <button class="v7-link" onclick="event.stopPropagation();openLegal('privacy')" id="v7-privacy-btn">Politicii de confidențialitate</button>.</label>
   </div>
 
   <button class="v7-cta btn-disabled v7-fade-6" id="age-btn" onclick="confirmAge()" disabled>
@@ -933,13 +855,15 @@ input:focus{outline:none;border-color:#db2777;}
 </main>
 
 <footer class="v7-footer">
-  <div class="v7-mark"><em>test<span class="v7-accent">cuplu</span>.ro</em></div>
+  <div style="display:inline-flex;align-items:center;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:999px;padding:5px 14px;margin-bottom:14px;"><span style="font-family:Georgia,serif;font-weight:700;font-size:0.85rem;background:linear-gradient(135deg,#f43f5e,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.5px;">testcuplu</span><span style="font-family:Georgia,serif;font-weight:400;font-size:0.85rem;color:rgba(255,255,255,0.5);letter-spacing:-0.5px;">.ro</span></div>
   <div class="v7-foot-links">
     <button onclick="openLegal('terms')" id="v7-foot-terms">Termeni</button>
     <span class="v7-sep">·</span>
     <button onclick="openLegal('privacy')" id="v7-foot-privacy">Politica de confidențialitate</button>
     <span class="v7-sep">·</span>
     <a href="mailto:contact@testcuplu.ro" style="color:rgba(255,255,255,0.5);text-decoration:none;font-size:11px;letter-spacing:0.5px;">Contact</a>
+    <span class="v7-sep">·</span>
+    <a href="https://anpc.ro/ce-este-sal/" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.5);text-decoration:none;font-size:11px;letter-spacing:0.5px;" id="v7-foot-sal">SAL</a>
   </div>
   <div class="v7-foot-tag" id="v7-foot-tag">Test exploratoriu pentru cupluri · © 2026 testcuplu.ro<br>Nu înlocuiește consilierea profesională</div>
 </footer>
@@ -961,11 +885,11 @@ input:focus{outline:none;border-color:#db2777;}
         <div id="welcome-badge" style="font-size:1rem;color:rgba(255,255,255,0.8);text-shadow:0 1px 8px rgba(0,0,0,0.4);line-height:1.4;">Știi ce vrea partenerul tău<br>— sau crezi că știi?</div>
       </div>
       <div style="display:flex;gap:20px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:10px 20px;backdrop-filter:blur(4px);">
-        <div style="text-align:center;"><div style="font-size:18px;font-weight:900;color:#f43f5e;line-height:1;">~255</div><div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">întrebări</div></div>
+        <div style="text-align:center;"><div style="font-size:18px;font-weight:900;color:#f43f5e;line-height:1;">~255</div><div id="wh-l-q" style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">întrebări</div></div>
         <div style="width:1px;background:rgba(255,255,255,0.12);"></div>
-        <div style="text-align:center;"><div style="font-size:18px;font-weight:900;color:#f43f5e;line-height:1;">3</div><div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">zone</div></div>
+        <div style="text-align:center;"><div style="font-size:18px;font-weight:900;color:#f43f5e;line-height:1;">3</div><div id="wh-l-z" style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">zone</div></div>
         <div style="width:1px;background:rgba(255,255,255,0.12);"></div>
-        <div style="text-align:center;"><div style="font-size:14px;font-weight:900;color:#f43f5e;line-height:1.2;">~20 min<br><span style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.7);">per persoană</span></div><div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;">~40 min total</div></div>
+        <div style="text-align:center;"><div style="font-size:14px;font-weight:900;color:#f43f5e;line-height:1.2;">~30-35 min<br><span id="wh-l-pp" style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.7);">per persoană</span></div><div id="wh-l-tot" style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;">~60-70 min total</div></div>
       </div>
     </div>
   </div>
@@ -1075,6 +999,7 @@ input:focus{outline:none;border-color:#db2777;}
         <div id="p2-sex-note" style="font-size:0.72rem;color:#9ca3af;margin-top:-8px;">Folosit doar pentru filtrarea întrebărilor anatomice</div>
       </div>
     </div>
+    <div id="samesex-note" style="font-size:0.75rem;color:#5b21b6;line-height:1.5;background:#f5f3ff;border-left:3px solid #a78bfa;padding:8px 12px;border-radius:6px;margin-top:12px;">💬 Testul e scris în acest moment pentru cupluri bărbat-femeie — formulările presupun un partener de sex opus. Pentru cupluri de același sex, unele întrebări pot suna nenatural; lucrăm la o versiune adaptată.</div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid #f1f5f9;">
       <div class="label" id="email-lbl" style="color:#be123c;font-weight:700;display:flex;align-items:center;gap:6px;">📧 Email cuplu <span style="font-size:0.7rem;background:#fff1f2;color:#be123c;padding:2px 8px;border-radius:10px;font-weight:700;">obligatoriu</span></div>
       <div style="position:relative;">
@@ -1172,7 +1097,7 @@ input:focus{outline:none;border-color:#db2777;}
       </div>
       <div class="faq-item">
         <button class="faq-q" onclick="toggleFaq(this)" id="faq-q4"><span id="faq-q4-txt">Cât durează testul?</span><span class="faq-q-arrow">▼</span></button>
-        <div class="faq-a" id="faq-a4-txt">Aproximativ 20 de minute per persoană — 40 de minute total. Puteți răspunde unul după altul (recomandat) sau cu o pauză între, oricât de lungă. Răspunsurile primului partener se păstrează automat — chiar dacă închideți pagina și reveniți mai târziu, le regăsiți acolo unde v-ați oprit (atâta timp cât nu ștergeți datele browserului). Pe iPhone/iPad, dacă lăsați mai mult de o săptămână între parteneri, deschideți testul măcar o dată ca să păstrați răspunsurile.</div>
+        <div class="faq-a" id="faq-a4-txt">Aproximativ 30-35 de minute per persoană — 60-70 de minute total. Puteți răspunde unul după altul (recomandat) sau cu o pauză între, oricât de lungă. Răspunsurile primului partener se păstrează automat — chiar dacă închideți pagina și reveniți mai târziu, le regăsiți acolo unde v-ați oprit (atâta timp cât nu ștergeți datele browserului). Pe iPhone/iPad, dacă lăsați mai mult de o săptămână între parteneri, deschideți testul măcar o dată ca să păstrați răspunsurile.</div>
       </div>
       <div class="faq-item">
         <button class="faq-q" onclick="toggleFaq(this)" id="faq-q5"><span id="faq-q5-txt">Pe ce dispozitive funcționează?</span><span class="faq-q-arrow">▼</span></button>
@@ -1204,7 +1129,7 @@ input:focus{outline:none;border-color:#db2777;}
       </div>
       <div class="faq-item">
         <button class="faq-q" onclick="toggleFaq(this)" id="faq-q12"><span id="faq-q12-txt">Datele noastre sunt private?</span><span class="faq-q-arrow">▼</span></button>
-        <div class="faq-a" id="faq-a12-txt">Da. Răspunsurile rămân doar pe dispozitivul vostru, în browser — nu le salvăm pe servere și nu le folosim pentru nimic altceva. Plata e procesată de Stripe în mediu securizat (standard PCI DSS — folosit de bănci internaționale); noi vedem doar suma și statusul tranzacției, nu vedem datele cardului. Adresa de email este folosită exclusiv pentru trimiterea codului de acces după plata Premium și pentru retrimiterea lui dacă o cereți. Atât.</div>
+        <div class="faq-a" id="faq-a12-txt">Răspunsurile rămân pe dispozitivul vostru, în browser — ajung la noi doar dacă alegeți să trimiteți raportul pe email; atunci, conținutul (întrebări și răspunsuri) e transmis către Brevo, exclusiv pentru livrare. Plata e procesată de Stripe, în mediu securizat (PCI DSS) — vedem doar suma și statusul tranzacției, niciodată datele cardului. Emailul e folosit exclusiv pentru codul de acces Premium și retrimiterea lui la cerere.</div>
       </div>
       <div class="faq-item">
         <button class="faq-q" onclick="toggleFaq(this)" id="faq-q13"><span id="faq-q13-txt">Este testul potrivit pentru toate tipurile de cupluri?</span><span class="faq-q-arrow">▼</span></button>
@@ -1232,6 +1157,7 @@ input:focus{outline:none;border-color:#db2777;}
     <a class="footer-link" href="javascript:void(0)" onclick="openLegal('privacy');return false;" id="footer-privacy">Politică de confidențialitate</a>
     <a class="footer-link" href="javascript:void(0)" onclick="openLegal('payment');return false;" id="footer-payment">Politică de plată</a>
     <a class="footer-link" href="mailto:contact@testcuplu.ro" id="footer-contact">Contact</a>
+    <a class="footer-link" href="https://anpc.ro/ce-este-sal/" target="_blank" rel="noopener" id="footer-sal">SAL</a>
     <div id="footer-lang-toggle" style="display:flex;gap:4px;background:rgba(255,255,255,0.15);backdrop-filter:blur(8px);border-radius:999px;padding:4px;border:1px solid rgba(255,255,255,0.2);margin-left:6px;">
       <button class="lang-btn-f" id="f-btn-ro" onclick="setLang('ro')" style="background:transparent;border:none;color:rgba(255,255,255,0.6);padding:5px 12px;border-radius:999px;font-size:0.72rem;font-weight:800;cursor:pointer;">🇷🇴 RO</button>
       <button class="lang-btn-f" id="f-btn-en" onclick="setLang('en')" style="background:transparent;border:none;color:rgba(255,255,255,0.6);padding:5px 12px;border-radius:999px;font-size:0.72rem;font-weight:800;cursor:pointer;">🇬🇧 EN</button>
@@ -1263,7 +1189,7 @@ input:focus{outline:none;border-color:#db2777;}
     <!-- brand on dark -->
     <div style="text-align:center;margin-bottom:24px;">
       <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(244,63,94,0.15);border:1px solid rgba(244,63,94,0.3);border-radius:999px;padding:6px 16px;">
-        <span style="font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:0.95rem;color:#f43f5e;letter-spacing:-0.5px;">testcuplu</span><span style="font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:0.95rem;color:rgba(255,255,255,0.25);letter-spacing:-0.5px;">.ro</span>
+        <span style="font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:0.95rem;background:linear-gradient(135deg,#f43f5e,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.5px;">testcuplu</span><span style="font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:0.95rem;color:rgba(255,255,255,0.5);letter-spacing:-0.5px;">.ro</span>
       </div>
     </div>
     <div style="text-align:center;margin-bottom:28px;">
@@ -1371,7 +1297,7 @@ input:focus{outline:none;border-color:#db2777;}
 <div id="s-transition" class="screen" style="background:linear-gradient(160deg,#0f172a,#1a0a2e,#0f172a);min-height:100vh;">
 <div class="wrap" style="min-height:100vh;display:flex;align-items:center;justify-content:center;">
   <div style="text-align:center;max-width:360px;width:100%;">
-    <div style="margin-bottom:18px;"><div style="display:inline-flex;align-items:center;background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.25);border-radius:999px;padding:6px 16px;"><span style='font-family:Georgia,serif;font-weight:700;font-size:0.88rem;color:#f43f5e;letter-spacing:-0.5px;'>testcuplu</span><span style='font-family:Georgia,serif;font-weight:400;font-size:0.88rem;color:rgba(255,255,255,0.2);letter-spacing:-0.5px;'>.ro</span></div></div>
+    <div style="margin-bottom:18px;"><div style="display:inline-flex;align-items:center;background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.25);border-radius:999px;padding:6px 16px;"><span style='font-family:Georgia,serif;font-weight:700;font-size:0.88rem;background:linear-gradient(135deg,#f43f5e,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.5px;'>testcuplu</span><span style='font-family:Georgia,serif;font-weight:400;font-size:0.88rem;color:rgba(255,255,255,0.5);letter-spacing:-0.5px;'>.ro</span></div></div>
     <h2 id="tr-title" style="margin-bottom:8px;color:#fff;font-size:1.3rem;"></h2>
     <p id="tr-text" style="font-size:0.88rem;color:rgba(255,255,255,0.6);margin-bottom:24px;line-height:1.6;"></p>
 
@@ -1400,7 +1326,7 @@ input:focus{outline:none;border-color:#db2777;}
     <!-- brand -->
     <div style="margin-bottom:20px;">
       <div style="display:inline-flex;align-items:center;background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.25);border-radius:999px;padding:6px 16px;">
-        <span style="font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:0.88rem;color:#f43f5e;letter-spacing:-0.5px;">testcuplu</span><span style="font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:0.88rem;color:rgba(255,255,255,0.2);letter-spacing:-0.5px;">.ro</span>
+        <span style="font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:0.88rem;background:linear-gradient(135deg,#f43f5e,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.5px;">testcuplu</span><span style="font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:0.88rem;color:rgba(255,255,255,0.5);letter-spacing:-0.5px;">.ro</span>
       </div>
     </div>
     <h2 id="before-title" style="color:#fff;font-size:1.35rem;margin-bottom:8px;line-height:1.3;">Ați terminat amândoi</h2>
@@ -2376,7 +2302,6 @@ var T = {
 ro: {
   ageTitle: "Conținut pentru adulți",
   ageSub: "Acest test conține întrebări explicite despre viața sexuală. Este destinat exclusiv persoanelor cu vârsta de <strong style='color:#f43f5e;'>18 ani sau mai mult.</strong>",
-  ageCheck: "Confirm că am <strong>minim 18 ani</strong> și că accept să vizualizez conținut cu caracter sexual explicit.",
   ageLegal: "Răspunsurile rămân pe dispozitivul tău. Nu colectăm nimic automat. Dacă trimiți rezultatele pe email, tu inițiezi acel export.",
   ageBtn: "Intru în test",
   privacyLink: "Politica de confidențialitate",
@@ -2456,7 +2381,6 @@ ro: {
 en: {
   ageTitle: "Adults only",
   ageSub: "This test contains explicit questions about sexual life. It is intended exclusively for persons aged <strong style='color:#f43f5e;'>18 or over.</strong>",
-  ageCheck: "I confirm I am <strong>at least 18 years old</strong> and I agree to view sexually explicit content.",
   ageLegal: "Your answers are stored locally on your device. If you choose to email or share results, you initiate that export.",
   ageBtn: "I'm ready",
   privacyLink: "Privacy Policy",
@@ -2878,17 +2802,17 @@ function renderAgeGate(){
     ct.innerHTML = '';
     var span1 = document.createElement('span');
     span1.innerHTML = isEN
-      ? 'I confirm I am <b>at least 18 years old</b> and I agree to the '
-      : 'Confirm că am <b>minim 18 ani</b> și sunt de acord cu ';
+      ? 'I confirm I am <b>at least 18 years old</b> and I agree that my answers, <b>including questions about sexual life</b>, are processed per the '
+      : 'Confirm că am <b>minim 18 ani</b> și sunt de acord ca răspunsurile mele, <b>inclusiv la întrebări despre viața sexuală</b>, să fie procesate conform ';
     var link1 = document.createElement('button');
     link1.className = 'v7-link';
-    link1.textContent = isEN ? 'Terms of Use' : 'Termenii de utilizare';
+    link1.textContent = isEN ? 'Terms of Use' : 'Termenilor de utilizare';
     link1.onclick = function(e){ e.stopPropagation(); openLegal('terms'); };
     var span2 = document.createElement('span');
     span2.textContent = isEN ? ' and ' : ' și ';
     var link2 = document.createElement('button');
     link2.className = 'v7-link';
-    link2.textContent = isEN ? 'Privacy Policy' : 'Politica de confidențialitate';
+    link2.textContent = isEN ? 'Privacy Policy' : 'Politicii de confidențialitate';
     link2.onclick = function(e){ e.stopPropagation(); openLegal('privacy'); };
     var span3 = document.createElement('span');
     span3.textContent = '.';
@@ -2928,8 +2852,21 @@ function renderWelcome(){
   if(wt) wt.textContent = t('welcomeTitle');
   var wb = document.getElementById('welcome-badge');
   if(wb) wb.innerHTML = t('welcomeBadge');
-  // Zones title
-  var zt = document.getElementById('zones-title'); if(zt) zt.textContent = t('zonesTitle');
+  // Zones title — FIX: id-ul real din HTML e 'zones-label', nu 'zones-title'.
+  // Referința greșită făcea ca traducerea să nu se aplice niciodată, silențios
+  // (garda if(zt) ascundea eroarea) — exact bug-ul care lăsa "3 zone progresive"
+  // netradus pe pagina în engleză, semnalat de Nicolae.
+  var zt = document.getElementById('zones-label'); if(zt) zt.textContent = t('zonesTitle');
+  // Etichetele din hero (întrebări/zone/per persoană/total) — nu aveau deloc id
+  // înainte, deci nu puteau fi traduse. Fix nou, azi. IMPORTANT: folosesc
+  // LANG==='en' direct, NU variabila isEN — aceea e declarată mai jos în această
+  // funcție (var hoisted, dar neatribuită încă aici), deci s-ar fi citit mereu
+  // ca undefined/falsy și ar fi ales mereu varianta română, indiferent de limbă.
+  // Exact bug-ul real din spatele "tot arată la fel", prins abia acum.
+  var whq = document.getElementById('wh-l-q'); if(whq) whq.textContent = (LANG==='en')?'questions':'întrebări';
+  var whz = document.getElementById('wh-l-z'); if(whz) whz.textContent = (LANG==='en')?'zones':'zone';
+  var whpp = document.getElementById('wh-l-pp'); if(whpp) whpp.textContent = (LANG==='en')?'per person':'per persoană';
+  var whtot = document.getElementById('wh-l-tot'); if(whtot) whtot.textContent = (LANG==='en')?'~60-70 min total':'~60-70 min total';
   // Zone names & descs
   var z1n = document.getElementById('z1name'); if(z1n) z1n.textContent = t('zone1name');
   var z1d = document.getElementById('z1desc'); if(z1d) z1d.textContent = t('zone1desc');
@@ -2991,6 +2928,12 @@ function renderWelcome(){
     emlNote.innerHTML = isEN
       ?'🔐 <strong>Important:</strong> We send the access code to this email. Without it, if you lose access after payment, we cannot refund you.'
       :'🔐 <strong>Important:</strong> Trimitem codul de acces pe acest email. Fără el, dacă pierdeți accesul după plată, nu vă putem da banii înapoi.';
+  }
+  var ssNote = document.getElementById('samesex-note');
+  if(ssNote){
+    ssNote.innerHTML = isEN
+      ?'💬 Right now the test is written for opposite-sex couples — the wording assumes a partner of the other sex. For same-sex couples some questions may feel off; we\'re working on an adapted version.'
+      :'💬 Testul e scris în acest moment pentru cupluri bărbat-femeie — formulările presupun un partener de sex opus. Pentru cupluri de același sex, unele întrebări pot suna nenatural; lucrăm la o versiune adaptată.';
   }
   // Relationship card
   var relTitle = document.getElementById('rel-title');
@@ -3113,9 +3056,9 @@ function revealResults(){
   // Quick animated reveal of ?% → actual scores
   var data = calcResults();
   var scores = [
-    {id:'before-c1', val: Math.round(data.core||0)},
-    {id:'before-c2', val: Math.round(data.style||0)},
-    {id:'before-c3', val: Math.round(data.disc||0)}
+    {id:'before-c1', val: data.core},
+    {id:'before-c2', val: data.style},
+    {id:'before-c3', val: data.disc}
   ];
   var delay = 0;
   scores.forEach(function(s){
@@ -3124,7 +3067,9 @@ function revealResults(){
       if(el){
         el.style.transition='transform 0.3s';
         el.style.transform='scale(1.2)';
-        el.textContent = s.val+'%';
+        // FIX din audit v68: null (zonă fără scor) arată "—", nu "0%" — animația
+        // trebuia să verifice explicit null, nu doar să facă (val||0).
+        el.textContent = (s.val===null||s.val===undefined) ? '\u2014' : Math.round(s.val)+'%';
         setTimeout(function(){ el.style.transform='scale(1)'; }, 300);
       }
     }, delay);
@@ -3303,58 +3248,6 @@ function modalConfirm(){
   if(_modalCallback){ _modalCallback(); _modalCallback=null; }
 }
 document.addEventListener('DOMContentLoaded', function(){
-  // ═══ COMING SOON / DEV MODE LOGIC ════════════════════════════
-  // Comutator central: false = Coming Soon dezactivat, site live pentru toată lumea.
-  // true = revine la comportamentul vechi (Coming Soon activ pentru vizitatori publici).
-  var COMING_SOON_ENABLED = false;
-
-  // Check URL params for dev mode toggle
-  var urlParams = new URLSearchParams(window.location.search);
-  var devParam = urlParams.get('dev');
-  if(devParam === '1'){
-    try{ localStorage.setItem('tc_dev', '1'); }catch(e){}
-  } else if(devParam === '0'){
-    try{ localStorage.removeItem('tc_dev'); }catch(e){}
-  }
-  var isDev = false;
-  try{ isDev = localStorage.getItem('tc_dev') === '1'; }catch(e){}
-
-  // Un client care a plătit deja (verificat anterior, persistent local) trece
-  // mereu de Coming Soon — esențial pentru reload-ul de după verifyPendingPayment()
-  var isPaidUser = false;
-  try{ isPaidUser = localStorage.getItem('compat_paid') === '1' || getCookie('compat_paid') === '1'; }catch(e){}
-
-  // Stripe return (session_id/payment_intent) also bypasses Coming Soon,
-  // ca verificarea reală să poată rula (vezi verifyPendingPayment mai jos)
-  var hasStripeToken = isPaidUser ||
-                        urlParams.get('token') === 'tc2026ok' ||
-                        !!urlParams.get('session_id') ||
-                        !!urlParams.get('payment_intent');
-  // Coming Soon is also bypassed for the Netlify form-name detection (POST submissions)
-  var isFormSubmit = urlParams.get('form-name') !== null;
-
-  if(COMING_SOON_ENABLED && !isDev && !hasStripeToken && !isFormSubmit){
-    // PUBLIC VISITOR → show Coming Soon, hide everything else
-    var allScreens = document.querySelectorAll('.screen');
-    for(var i=0;i<allScreens.length;i++){ allScreens[i].classList.remove('active','fade'); }
-    var cs = document.getElementById('s-comingsoon');
-    if(cs) cs.classList.add('active');
-    // Hide global language toggle and footer (Coming Soon has its own)
-    var globalLang = document.querySelector('.lang-toggle-wrap, .lang-toggle');
-    if(globalLang) globalLang.style.display='none';
-    var footer = document.getElementById('site-footer');
-    if(footer) footer.style.display='none';
-    // Init Coming Soon language from sessionStorage
-    csSetLang(LANG === 'en' ? 'en' : 'ro');
-    // Start countdown
-    csStartCountdown();
-    // Hide age gate too (avoid double overlay)
-    var ag = document.getElementById('s-agegate');
-    if(ag){ ag.classList.remove('active','fade'); ag.style.display='none'; }
-    return; // Stop further init — public sees only CS
-  }
-
-  // ═══ NORMAL SITE INIT (dev mode or returning paid user) ═════════
   // Sync lang button visual state with LANG value from sessionStorage
   var btnRo = document.getElementById('btn-ro');
   var btnEn = document.getElementById('btn-en');
@@ -3410,195 +3303,6 @@ document.addEventListener('DOMContentLoaded', function(){
     try{ sessionStorage.removeItem('compat_age_confirmed'); }catch(e){}
   }
 });
-
-// ═══════════════════════════════════════════════════════════════
-// ═══ COMING SOON FUNCTIONS ═════════════════════════════════════
-var CS_LANG = 'ro';
-var CS_TARGET = new Date('2026-06-08T00:00:00').getTime();
-var CS_TXT = {
-  ro: {
-    h1: 'Test de Compatibilitate<br>pentru <span class="cs-grad">Cupluri</span>',
-    subtitle: 'Descoperă cât de bine vă potriviți. ~255 de întrebări, 3 zone, rezultate instant.',
-    cdLabel: 'Suntem aproape gata',
-    ctaMain: 'Înscrie-te acum pentru <b>acces early bird</b>.',
-    ctaSub: 'Primii înregistrați sunt notificați primii și primesc oferta de lansare exclusivă.',
-    unitD: 'ZILE', unitH: 'ORE', unitM: 'MIN', unitS: 'SEC',
-    promoLabel: '🎁 Ofertă exclusivă early bird',
-    promoText: 'Primii 20 înregistrați primesc testul PREMIUM gratuit la lansare',
-    promoValue: 'Valoare 29 RON · Acces complet la toate cele 3 zone',
-    emailPh: 'emailul tău...',
-    gdprLabel: 'Sunt de acord să primesc emailuri despre lansarea testcuplu.ro și oferta early bird. Citește <a onclick="csOpenPrivacy(event)">politica de confidențialitate</a>.',
-    submitBtn: 'Înscrie-mă pe lista VIP →',
-    trust: '🔒 Folosim emailul tău doar pentru notificarea de lansare. Nu îl vindem și nu îl împărtășim cu terți. Te poți dezabona oricând.',
-    footer: '💌 Te notificăm imediat ce lansăm — fără spam, fără promovări nesolicitate',
-    success: '✅ Te-am adăugat pe lista VIP! Te notificăm imediat ce lansăm.',
-    pmTitle: 'Politica de confidențialitate',
-    pmVersion: '<b>Versiune Coming Soon · Mai 2026</b>',
-    pmWhoH: 'Cine colectează datele',
-    pmWho: 'testcuplu.ro (PFA în înregistrare la ONRC, datele complete vor fi adăugate după 21.05.2026). Contact: contact@testcuplu.ro',
-    pmWhatH: 'Ce date colectăm',
-    pmWhat: 'Doar adresa ta de email. Nimic altceva — fără nume, telefon, IP sau cookies de tracking.',
-    pmWhyH: 'În ce scop',
-    pmWhy: 'Pentru a te anunța când lansăm testcuplu.ro și pentru a-ți trimite oferta early bird (test PREMIUM gratuit pentru primii 20 înregistrați).',
-    pmHowH: 'Cât timp păstrăm datele',
-    pmHow: 'Până la lansare + maxim 30 de zile după. Apoi ștergere automată.',
-    pmShareH: 'Cu cine partajăm datele',
-    pmShare: 'Nu vindem și nu partajăm cu terți. Pentru recepție folosim Zoho Mail (procesator conform GDPR) și Netlify Forms (procesator UE pentru captură formular).',
-    pmRightsH: 'Drepturile tale',
-    pmRights: 'Conform GDPR ai dreptul la: acces, rectificare, ștergere (right to be forgotten), opoziție, portabilitate, retragerea consimțământului. Trimite cererea la contact@testcuplu.ro — răspundem în maxim 30 zile.',
-    pmAuthH: 'Autoritatea de supraveghere',
-    pmAuth: 'Dacă crezi că drepturile tale au fost încălcate, poți depune plângere la ANSPDCP — www.dataprotection.ro',
-    pmClose: 'Închide',
-    alertGdpr: 'Te rog bifează acordul GDPR pentru a continua.'
-  },
-  en: {
-    h1: 'Compatibility Test<br>for <span class="cs-grad">Couples</span>',
-    subtitle: 'Discover how well you match. ~255 questions, 3 zones, instant results.',
-    cdLabel: 'We\'re almost ready',
-    ctaMain: 'Sign up now for <b>early bird access</b>.',
-    ctaSub: 'First signups get notified first and receive the exclusive launch offer.',
-    unitD: 'DAYS', unitH: 'HOURS', unitM: 'MIN', unitS: 'SEC',
-    promoLabel: '🎁 Exclusive early bird offer',
-    promoText: 'First 20 signups receive the PREMIUM test free at launch',
-    promoValue: 'Value 29 RON · Full access to all 3 zones',
-    emailPh: 'your email...',
-    gdprLabel: 'I agree to receive emails about the testcuplu.ro launch and the early bird offer. Read the <a onclick="csOpenPrivacy(event)">privacy policy</a>.',
-    submitBtn: 'Add me to the VIP list →',
-    trust: '🔒 We use your email only for the launch notification. We do not sell or share it with third parties. You can unsubscribe at any time.',
-    footer: '💌 We\'ll notify you the moment we launch — no spam, no unsolicited promotions',
-    success: '✅ You\'re on the VIP list! We\'ll notify you the moment we launch.',
-    pmTitle: 'Privacy policy',
-    pmVersion: '<b>Coming Soon version · May 2026</b>',
-    pmWhoH: 'Who collects the data',
-    pmWho: 'testcuplu.ro (PFA registration in progress at ONRC, full details added after 21.05.2026). Contact: contact@testcuplu.ro',
-    pmWhatH: 'What data we collect',
-    pmWhat: 'Only your email address. Nothing else — no name, phone, IP or tracking cookies.',
-    pmWhyH: 'Purpose',
-    pmWhy: 'To notify you when testcuplu.ro launches and to send you the early bird offer (free PREMIUM test for the first 20 signups).',
-    pmHowH: 'How long we keep the data',
-    pmHow: 'Until launch + maximum 30 days after. Then automatic deletion.',
-    pmShareH: 'Who we share data with',
-    pmShare: 'We do not sell or share with third parties. For receiving we use Zoho Mail (GDPR-compliant processor) and Netlify Forms (EU processor for form capture).',
-    pmRightsH: 'Your rights',
-    pmRights: 'Under GDPR you have the right to: access, rectification, erasure, objection, portability, withdrawal of consent. Send your request to contact@testcuplu.ro — we reply within 30 days.',
-    pmAuthH: 'Supervisory authority',
-    pmAuth: 'If you believe your rights have been violated, you may file a complaint with ANSPDCP — www.dataprotection.ro',
-    pmClose: 'Close',
-    alertGdpr: 'Please check the GDPR consent to continue.'
-  }
-};
-
-function csSetLang(lang){
-  CS_LANG = lang;
-  // Update language toggle buttons
-  var btnRo = document.getElementById('cs-btn-ro');
-  var btnEn = document.getElementById('cs-btn-en');
-  if(btnRo) btnRo.className = (lang==='ro' ? 'active' : '');
-  if(btnEn) btnEn.className = (lang==='en' ? 'active' : '');
-  // Update hidden form field
-  var langField = document.getElementById('cs-lang-field');
-  if(langField) langField.value = lang.toUpperCase();
-  // Update all text content
-  var t = CS_TXT[lang];
-  function set(id, val, html){
-    var el = document.getElementById(id);
-    if(!el) return;
-    if(html) el.innerHTML = val; else el.textContent = val;
-  }
-  set('cs-h1', t.h1, true);
-  set('cs-subtitle', t.subtitle);
-  set('cs-cd-label', t.cdLabel);
-  set('cs-cta-main', t.ctaMain, true);
-  set('cs-cta-sub', t.ctaSub);
-  set('cs-unit-d', t.unitD);
-  set('cs-unit-h', t.unitH);
-  set('cs-unit-m', t.unitM);
-  set('cs-unit-s', t.unitS);
-  set('cs-promo-label', t.promoLabel);
-  set('cs-promo-text', t.promoText);
-  set('cs-promo-value', t.promoValue);
-  set('cs-gdpr-label', t.gdprLabel, true);
-  set('cs-submit-btn', t.submitBtn);
-  set('cs-trust', t.trust);
-  set('cs-footer', t.footer, true);
-  set('cs-success', t.success);
-  set('cs-pm-title', t.pmTitle);
-  set('cs-pm-version', t.pmVersion, true);
-  set('cs-pm-who-h', t.pmWhoH);
-  set('cs-pm-who', t.pmWho);
-  set('cs-pm-what-h', t.pmWhatH);
-  set('cs-pm-what', t.pmWhat);
-  set('cs-pm-why-h', t.pmWhyH);
-  set('cs-pm-why', t.pmWhy);
-  set('cs-pm-how-h', t.pmHowH);
-  set('cs-pm-how', t.pmHow);
-  set('cs-pm-share-h', t.pmShareH);
-  set('cs-pm-share', t.pmShare);
-  set('cs-pm-rights-h', t.pmRightsH);
-  set('cs-pm-rights', t.pmRights);
-  set('cs-pm-auth-h', t.pmAuthH);
-  set('cs-pm-auth', t.pmAuth);
-  set('cs-pm-close', t.pmClose);
-  // Update email placeholder
-  var emailInput = document.getElementById('cs-email');
-  if(emailInput) emailInput.placeholder = t.emailPh;
-}
-
-function csStartCountdown(){
-  // Countdown dezactivat — am înlocuit cu CTA fără dată.
-  // Funcția e păstrată ca no-op pentru compatibilitate cu apelurile existente.
-}
-
-function csToggleBtn(){
-  var btn = document.getElementById('cs-submit-btn');
-  var gdpr = document.getElementById('cs-gdpr');
-  if(btn && gdpr) btn.disabled = !gdpr.checked;
-}
-
-function csOpenPrivacy(e){
-  if(e) e.preventDefault();
-  document.getElementById('cs-privacy-modal').classList.add('show');
-}
-function csClosePrivacy(){
-  document.getElementById('cs-privacy-modal').classList.remove('show');
-}
-
-function csSubmit(e){
-  e.preventDefault();
-  var gdpr = document.getElementById('cs-gdpr');
-  if(!gdpr || !gdpr.checked){
-    alert(CS_TXT[CS_LANG].alertGdpr);
-    return false;
-  }
-  // Netlify Forms: submit via fetch with URL-encoded body (works with data-netlify="true")
-  var form = e.target;
-  var formData = new FormData(form);
-  // Convert FormData to URLSearchParams (proper Netlify format)
-  var params = new URLSearchParams();
-  formData.forEach(function(value, key){ params.append(key, value); });
-
-  fetch('/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString()
-  }).then(function(response){
-    if(response.ok){
-      // Success
-      document.getElementById('cs-success').classList.add('show');
-      document.getElementById('cs-email').value = '';
-      document.getElementById('cs-gdpr').checked = false;
-      csToggleBtn();
-      setTimeout(function(){
-        document.getElementById('cs-success').classList.remove('show');
-      }, 6000);
-    } else {
-      alert(CS_LANG==='ro' ? 'Eroare la trimitere. Te rog încearcă din nou.' : 'Submission error. Please try again.');
-    }
-  }).catch(function(){
-    alert(CS_LANG==='ro' ? 'Eroare de conexiune. Te rog încearcă din nou.' : 'Connection error. Please try again.');
-  });
-  return false;
-}
 
 // UTILS
 // ═══════════════════════════════════════════════════════════════
@@ -3701,16 +3405,28 @@ function goChoose(){
   S.p2.age=document.getElementById('p2age').value.trim();
   var emailEl=document.getElementById('coupleEmail');
   S.coupleEmail=emailEl?emailEl.value.trim():'';
+  var isEN=LANG==='en';
   if(!S.p1.name||!S.p1.sex||!S.p2.name||!S.p2.sex){alert(t('fillBoth'));return;}
   var age1=parseInt(S.p1.age,10);
   var age2=parseInt(S.p2.age,10);
-  var isEN=LANG==='en';
-  if(S.p1.age&&!isNaN(age1)&&age1<18){
-    alert(isEN?S.p1.name+' must be at least 18 years old to take this test.':S.p1.name+' trebuie sa aiba cel putin 18 ani pentru a participa la acest test.');
+  // Vârsta e OBLIGATORIE și trebuie să fie >=18 pentru amândoi — fix #11: înainte,
+  // un câmp de vârstă complet gol ocolea silențios această verificare.
+  if(!S.p1.age||isNaN(age1)||age1<18){
+    alert(isEN?(S.p1.name||'Partner 1')+' must be at least 18 years old to take this test.':(S.p1.name||'Partenerul 1')+' trebuie sa aiba cel putin 18 ani pentru a participa la acest test.');
     return;
   }
-  if(S.p2.age&&!isNaN(age2)&&age2<18){
-    alert(isEN?S.p2.name+' must be at least 18 years old to take this test.':S.p2.name+' trebuie sa aiba cel putin 18 ani pentru a participa la acest test.');
+  if(!S.p2.age||isNaN(age2)||age2<18){
+    alert(isEN?(S.p2.name||'Partner 2')+' must be at least 18 years old to take this test.':(S.p2.name||'Partenerul 2')+' trebuie sa aiba cel putin 18 ani pentru a participa la acest test.');
+    return;
+  }
+  // Fix #11: email valid și status+durată relație obligatorii, exact ca la buton — nu doar vizual.
+  var emailOk=S.coupleEmail&&S.coupleEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+  if(!emailOk){
+    alert(isEN?'Please enter a valid couple email address.':'Introduceți o adresă de email validă pentru cuplu.');
+    return;
+  }
+  if(!S.relStatus||!S.relDur){
+    alert(isEN?'Please fill in your relationship status and duration.':'Completați statutul și durata relației.');
     return;
   }
   saveSession();
@@ -4243,25 +3959,42 @@ function calcResults(){
       if(real1===0 && real2===0) skippedBy='both';
       else if(real1===0) skippedBy='p1';
       else if(real2===0) skippedBy='p2';
-      else skippedBy='both'; // caz rar: amândoi au răspuns, dar niciodată la aceeași întrebare
+      else skippedBy='no_overlap'; // caz rar: amândoi au răspuns, dar niciodată la aceeași întrebare
     }
     if(cc>0||details.length>0) results[cat.name]={score:cc>0?(cs/(cc*5))*100:0,noScore:noScore,skippedBy:skippedBy,group:cat.group,details:details,order:ci};
   }
-  var _core=groups.core.c>0?(groups.core.s/(groups.core.c*5))*100:null;
-  var _style=groups.style.c>0?(groups.style.s/(groups.style.c*5))*100:null;
-  var _disc=groups.disc.c>0?(groups.disc.s/(groups.disc.c*5))*100:null;
+  // FIX #3 din audit: înainte, scorul de zonă (cercul din raport) era media tuturor
+  // ÎNTREBĂRILOR comparabile (o categorie cu 18 întrebări cântărea mai mult decât una
+  // cu 5), în timp ce header-ul fiecărei zone calcula media CATEGORIILOR (fiecare
+  // categorie cântărește la fel) — cele două puteau afișa procente diferite pentru
+  // aceeași zonă, pe aceeași pagină. Acum ambele folosesc EXACT aceeași formulă:
+  // media categoriilor cu scor, fiecare categorie cu greutate egală — coerent cu
+  // ideea de "25 de dimensiuni" din marketing, unde fiecare dimensiune contează la fel.
+  function avgOfGroup(groupName){
+    var catsInGroup=Object.keys(results).filter(function(cn){ return results[cn].group===groupName && !results[cn].noScore; });
+    if(catsInGroup.length===0) return null;
+    var sum=catsInGroup.reduce(function(s,cn){ return s+Math.round(results[cn].score); },0);
+    return sum/catsInGroup.length;
+  }
+  var _core=avgOfGroup('core');
+  var _style=avgOfGroup('style');
+  var _disc=avgOfGroup('discovery');
   // Scor general = media simplă a zonelor răspunse (exclude null)
   var _validZones=[];
   if(_core!==null) _validZones.push(_core);
   if(_style!==null) _validZones.push(_style);
   if(_disc!==null) _validZones.push(_disc);
   var _overall=_validZones.length>0?_validZones.reduce(function(a,b){return a+b;},0)/_validZones.length:0;
+  // FIX #2 din audit: scorul general nu mai pretinde implicit că e complet — spunem
+  // explicit din câte zone (din cele 3 fixe ale aplicației) s-a putut calcula, ca
+  // verdictul afișat să poată spune "scor parțial" când lipsesc date.
   return {
     results:results,
     core:_core,
     style:_style,
     disc:_disc,
-    overall:_overall
+    overall:_overall,
+    coverage:{validZones:_validZones.length, totalZones:3}
   };
 }
 
@@ -4271,7 +4004,15 @@ function noScoreMsg(skippedBy, isEN){
   var who = skippedBy==='p1' ? n1 : (skippedBy==='p2' ? n2 : null);
   var title = isEN ? 'No score here yet' : 'Aici nu avem înc\u0103 un scor';
   var p1, p2;
-  if(who){
+  if(skippedBy==='no_overlap'){
+    p1 = isEN
+      ? 'You both answered questions in this category, but not the same ones \u2014 so there\u2019s no shared answer to compare, and this category doesn\u2019t count toward your overall score.'
+      : 'A\u021Bi r\u0103spuns am\u00e2ndoi la \u00eentreb\u0103ri din aceast\u0103 categorie, dar nu la acelea\u0219i \u2014 a\u0219a c\u0103 nu exist\u0103 un r\u0103spuns comun de comparat, iar categoria nu intr\u0103 \u00een scorul general.';
+    // FIX din auditul v67: am eliminat fraza "nimic n-a fost sărit intenționat" —
+    // codul nu poate ști intenția utilizatorilor, doar faptul că răspunsurile nu
+    // s-au suprapus. Rămâne doar afirmația susținută de date (p1).
+    p2 = '';
+  } else if(who){
     p1 = isEN
       ? who+' chose \u2018Prefer not to answer\u2019 for every question in this category, so there\u2019s nothing to compare \u2014 this category doesn\u2019t count toward your overall score.'
       : who+' a ales \u201ePrefer s\u0103 nu r\u0103spund\u201d la toate \u00eentreb\u0103rile din aceast\u0103 categorie, a\u0219a c\u0103 nu avem ce compara \u2014 categoria nu intr\u0103 \u00een scorul general.';
@@ -4325,16 +4066,31 @@ function renderResults(){
   var isEN=LANG==='en';
   // Scor general = media simplă a celor 3 zone (calculat în calcResults)
   var overallPct=Math.round(data.overall||0);
+  // FIX #2 din audit: dacă nu toate cele 3 zone au avut date, verdictul nu mai
+  // pretinde implicit un rezultat complet — spunem explicit că e parțial, sau,
+  // dacă nu există nicio zonă cu scor, nu afișăm deloc un verdict de încredere.
+  var cov = data.coverage || {validZones:3, totalZones:3};
+  var isPartialScore = cov.validZones>0 && cov.validZones<cov.totalZones;
+  var hasNoScore = cov.validZones===0;
 
   // ── Hero ──
   var hs=document.getElementById('r-hero-score');
-  if(hs) hs.textContent=overallPct+'%';
+  if(hs) hs.textContent = hasNoScore ? '\u2014' : overallPct+'%';
   var hl=document.getElementById('r-hero-label');
-  if(hl) hl.textContent=
-    overallPct>=85?(isEN?'Exceptional compatibility':'Compatibilitate excepțională'):
-    overallPct>=70?(isEN?'Very good compatibility':'Compatibilitate foarte bună'):
-    overallPct>=55?(isEN?'Good compatibility':'Compatibilitate bună'):
-    (isEN?'Work in progress':'Relație cu potențial');
+  if(hl){
+    if(hasNoScore){
+      hl.textContent = isEN?'There\u2019s no overall score to show yet':'Nu avem încă un scor general de arătat';
+    } else {
+      var baseLabel =
+        overallPct>=85?(isEN?'Exceptional compatibility':'Compatibilitate excepțională'):
+        overallPct>=70?(isEN?'Very good compatibility':'Compatibilitate foarte bună'):
+        overallPct>=55?(isEN?'Good compatibility':'Compatibilitate bună'):
+        (isEN?'Work in progress':'Relație cu potențial');
+      hl.textContent = isPartialScore
+        ? baseLabel+' '+(isEN?'— partial score ('+cov.validZones+'/'+cov.totalZones+' zones)':'— scor parțial ('+cov.validZones+'/'+cov.totalZones+' zone)')
+        : baseLabel;
+    }
+  }
   var hn=document.getElementById('r-hero-names');
   if(hn) hn.textContent=S.p1.name+' & '+S.p2.name;
   var hd=document.getElementById('r-hero-date');
@@ -4415,6 +4171,24 @@ function renderResults(){
     var avgZ1=z1Scored.length>0?Math.round(z1Scored.reduce(function(s,cn){return s+Math.round(res[cn].score);},0)/z1Scored.length):0;
 
     // Header Zona 1
+    var z1IntroText;
+    if(z1Scored.length===0){
+      z1IntroText=isEN
+        ?'This zone doesn\u2019t have a result yet \u2014 either some questions were skipped, or you each answered different ones. It doesn\u2019t say anything about you as a couple, just that there wasn\u2019t anything to compare this time.'
+        :'Zona asta nu are încă un rezultat — fie ați sărit peste întrebări, fie ați răspuns la altele decât partenerul. Nu spune nimic despre voi ca cuplu, doar că n-am avut ce compara de data asta.';
+    } else if(avgZ1>=75){
+      z1IntroText=isEN
+        ?'The foundation of your relationship looks <strong style="color:#f87171;">solid</strong>. Zone 1 measures emotional connection, communication and shared values — the elements that support everything else.'
+        :'Fundația relației voastre pare <strong style="color:#f87171;">solidă</strong>. Zona 1 măsoară conexiunea emoțională, comunicarea și valorile comune — elementele care susțin tot ce urmează.';
+    } else if(avgZ1>=55){
+      z1IntroText=isEN
+        ?'Your foundation shows <strong style="color:#f87171;">a mix of alignment and difference</strong>. You agree on several core things and see others differently — a normal starting point for talking honestly about what matters to each of you.'
+        :'Fundația voastră arată <strong style="color:#f87171;">o combinație de aliniere și diferențe</strong>. Sunteți de acord pe câteva lucruri esențiale și vedeți altele diferit — un punct de plecare normal pentru o discuție sinceră despre ce contează pentru fiecare.';
+    } else {
+      z1IntroText=isEN
+        ?'Right now this zone shows <strong style="color:#f87171;">notable differences</strong> in communication, values or emotional connection. That\'s not a verdict on the relationship — it\'s useful information about where an honest conversation could help the most.'
+        :'În acest moment, zona arată <strong style="color:#f87171;">diferențe notabile</strong> de comunicare, valori sau conexiune emoțională. Nu e un verdict despre relație — e o informație utilă despre unde o discuție sinceră ar ajuta cel mai mult.';
+    }
     var z1Header=document.createElement('div');
     z1Header.innerHTML=
       '<div style="padding:28px 20px 14px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(255,255,255,0.06);">'+
@@ -4425,7 +4199,7 @@ function renderResults(){
       '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;opacity:0.4;">'+(isEN?'avg score':'scor mediu')+'</div></div>'+
       '</div>'+
       '<div style="margin:12px 16px 6px;border-radius:14px;padding:13px 16px;font-size:13px;line-height:1.65;font-weight:500;background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.18);color:rgba(255,255,255,0.72);">'+
-      (isEN?'The foundation of your relationship is <strong style="color:#f87171;">solid</strong>. Zone 1 measures emotional connection, communication and shared values — the elements that support everything else.':'Funda\u021Bia rela\u021Biei voastre este <strong style=\"color:#f87171;\">solid\u0103</strong>. Zona 1 m\u0103soar\u0103 conexiunea emo\u021Bional\u0103, comunicarea \u0219i valorile comune \u2014 elementele care sus\u021Bin tot ce urmeaz\u0103.')+
+      z1IntroText+
       '</div>';
     catsDiv.appendChild(z1Header);
 
@@ -4441,39 +4215,31 @@ function renderResults(){
       var advTxt=noSc?null:(sc>=75?adv.h:sc>=55?adv.m:adv.l);
       var isFirst=idx===0;
       var rowId='z1cat'+idx;
-      // Întrebări și răspunsuri
+      // Întrebări și răspunsuri — folosesc res[cn].details, deja calculat corect
+      // de calcResults() (pairId-aware pt cele 4 categorii afectate). NU se mai
+      // re-derivă din a1/a2 prin index brut — asta era bug-ul real: index brut
+      // ignoră complet pairId și amestecă răspunsurile la Masturbare/Jucării/Swing.
       var qHtml='';
-      var a1=S.ans1[cn]||[]; var a2=S.ans2[cn]||[];
-      var catIdx=-1;
-      for(var ci=0;ci<CATS.length;ci++){ if(CATS[ci].name===cn){catIdx=ci;break;} }
-      if(catIdx>=0){
-        var qs1=getFiltered(catIdx,1); var qs2=getFiltered(catIdx,2);
-        var qs=qs1.length>=qs2.length?qs1:qs2;
-        for(var qi=0;qi<qs.length;qi++){
-          var q=qs[qi]; var v1=a1[qi]; var v2=a2[qi];
-          // 'skip' se tratează ca lipsă de răspuns: nu e o valoare comparabilă.
-          var sk1=(v1==='skip'), sk2=(v2==='skip');
-          if((v1==null||sk1)&&(v2==null||sk2)) continue;
-          var cmp1=sk1?null:v1, cmp2=sk2?null:v2;
-          var diff=cmp1!=null&&cmp2!=null?Math.abs(cmp1-cmp2):null;
-          var diffTxt=diff===null?'':(diff===0?(isEN?'\u2713 Identical':'\u2713 Identic'):(diff<=1?(isEN?'Very close':'Foarte aproape'):(isEN?'Quite different':'Destul de diferit')));
-          var diffColor=diff===null?'':(diff===0?'#4ade80':(diff<=1?'#fbbf24':'#fb7185'));
-          var ans1Txt=intAns(v1,!!q.abcd,q.abcd||null,q.abcden||null);
-          var ans2Txt=intAns(v2,!!q.abcd,q.abcd||null,q.abcden||null);
-          qHtml+='<div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:11px 13px;border:1px solid rgba(255,255,255,0.06);margin-bottom:6px;">'+
-            '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.55);margin-bottom:7px;line-height:1.4;">'+escapeHtml(isEN?(q.en||q.t||''):(q.t||''))+'</div>'+
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">'+
-            '<div style="background:rgba(99,102,241,0.1);border-radius:8px;padding:7px 9px;border:1px solid rgba(99,102,241,0.2);">'+
-            '<div style="font-size:9px;font-weight:800;color:#818cf8;margin-bottom:2px;">'+escapeHtml(S.p1.name)+'</div>'+
-            '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.75);">'+escapeHtml(ans1Txt)+'</div></div>'+
-            '<div style="background:rgba(244,63,94,0.1);border-radius:8px;padding:7px 9px;border:1px solid rgba(244,63,94,0.2);">'+
-            '<div style="font-size:9px;font-weight:800;color:#fb7185;margin-bottom:2px;">'+escapeHtml(S.p2.name)+'</div>'+
-            '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.75);">'+escapeHtml(ans2Txt)+'</div></div>'+
-            '</div>'+
-            (diffTxt?'<div style="font-size:10px;font-weight:700;color:'+diffColor+';margin-top:6px;">'+diffTxt+'</div>':'')+
-            '</div>';
-        }
-      }
+      (res[cn].details||[]).forEach(function(det){
+        if(det.p1==null && det.p2==null) return;
+        var diff=det.diff;
+        var diffTxt=diff===null?'':(diff===0?(isEN?'\u2713 Identical':'\u2713 Identic'):(diff<=1?(isEN?'Very close':'Foarte aproape'):(isEN?'Quite different':'Destul de diferit')));
+        var diffColor=diff===null?'':(diff===0?'#4ade80':(diff<=1?'#fbbf24':'#fb7185'));
+        var ans1Txt=intAns(det.p1,det.isABCD,det.opts,det.optsEn);
+        var ans2Txt=intAns(det.p2,det.isABCD,det.opts,det.optsEn);
+        qHtml+='<div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:11px 13px;border:1px solid rgba(255,255,255,0.06);margin-bottom:6px;">'+
+          '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.55);margin-bottom:7px;line-height:1.4;">'+escapeHtml(isEN?(det.en||det.t||''):(det.t||''))+'</div>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">'+
+          '<div style="background:rgba(99,102,241,0.1);border-radius:8px;padding:7px 9px;border:1px solid rgba(99,102,241,0.2);">'+
+          '<div style="font-size:9px;font-weight:800;color:#818cf8;margin-bottom:2px;">'+escapeHtml(S.p1.name)+'</div>'+
+          '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.75);">'+escapeHtml(ans1Txt)+'</div></div>'+
+          '<div style="background:rgba(244,63,94,0.1);border-radius:8px;padding:7px 9px;border:1px solid rgba(244,63,94,0.2);">'+
+          '<div style="font-size:9px;font-weight:800;color:#fb7185;margin-bottom:2px;">'+escapeHtml(S.p2.name)+'</div>'+
+          '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.75);">'+escapeHtml(ans2Txt)+'</div></div>'+
+          '</div>'+
+          (diffTxt?'<div style="font-size:10px;font-weight:700;color:'+diffColor+';margin-top:6px;">'+diffTxt+'</div>':'')+
+          '</div>';
+      });
       var block=document.createElement('div');
       block.id=rowId+'wrap';
       block.style.cssText='margin:4px 16px;border-radius:12px;overflow:hidden;background:'+(isFirst?'rgba(255,255,255,0.05)':'rgba(255,255,255,0.03)')+';border:1px solid '+(isFirst?'rgba(255,255,255,0.1)':'rgba(255,255,255,0.06)')+';';
@@ -4704,7 +4470,11 @@ function renderPaidZones(catsDiv, res, isEN, data){
     var tipBg=cls==='style'?'rgba(147,51,234,0.1)':'rgba(245,158,11,0.1)';
     var tipBorder=cls==='style'?'rgba(147,51,234,0.2)':'rgba(245,158,11,0.2)';
     var zoneIntroText;
-    if(avgScore>=75){
+    if(zoneScored.length===0){
+      zoneIntroText=isEN
+        ?'This zone doesn\u2019t have a result yet \u2014 either some questions were skipped, or you each answered different ones. It doesn\u2019t say anything about you as a couple, just that there wasn\u2019t anything to compare this time.'
+        :'Zona asta nu are încă un rezultat \u2014 fie ați sărit peste întrebări, fie ați răspuns la altele decât partenerul. Nu spune nimic despre voi ca cuplu, doar că n-am avut ce compara de data asta.';
+    } else if(avgScore>=75){
       zoneIntroText=isEN
         ?(cls==='style'?'Your sexual style is <strong style="color:'+zoneColor+'">well aligned</strong>. You share a solid foundation of common preferences — and the small differences are exactly what make things interesting.':'The exploration zone shows <strong style="color:'+zoneColor+'">curiosity and openness</strong>. There are some differences in pace — one of you is a bit more adventurous in certain areas. That\'s not a disagreement, it\'s an invitation for conversation.')
         :(cls==='style'?'Stilul vostru sexual este <strong style="color:'+zoneColor+'">bine aliniat</strong>. Există o bază solidă de preferințe comune — iar diferențele mici sunt exact ce fac lucrurile interesante.':'Zona de explorare arată <strong style="color:'+zoneColor+'">curiozitate și deschidere</strong>. Există câteva diferențe de ritm — unul dintre voi e ceva mai aventuros în anumite zone. Asta nu e un dezacord, e o invitație la conversație.');
@@ -4742,39 +4512,30 @@ function renderPaidZones(catsDiv, res, isEN, data){
       var advTxt=noSc?null:(sc>=75?adv.h:sc>=55?adv.m:adv.l);
       var isFirst=idx===0;
       var rowId='pz-cat-'+group+'-'+idx;
-      // ── Întrebări și răspunsuri P1 vs P2 (identic cu Zona 1) ──
+      // ── Întrebări și răspunsuri P1 vs P2 — folosesc res[cn].details, deja
+      // calculat corect de calcResults() (pairId-aware). Vezi comentariul din
+      // blocul echivalent de la Zona 1 pentru explicația bug-ului reparat aici.
       var qHtml='';
-      var a1=S.ans1[cn]||[]; var a2=S.ans2[cn]||[];
-      var catIdx=-1;
-      for(var ci=0;ci<CATS.length;ci++){ if(CATS[ci].name===cn){catIdx=ci;break;} }
-      if(catIdx>=0){
-        var qs1=getFiltered(catIdx,1); var qs2=getFiltered(catIdx,2);
-        var qs=qs1.length>=qs2.length?qs1:qs2;
-        for(var qi=0;qi<qs.length;qi++){
-          var q=qs[qi]; var v1=a1[qi]; var v2=a2[qi];
-          // 'skip' se tratează ca lipsă de răspuns: nu e o valoare comparabilă.
-          var sk1=(v1==='skip'), sk2=(v2==='skip');
-          if((v1==null||sk1)&&(v2==null||sk2)) continue;
-          var cmp1=sk1?null:v1, cmp2=sk2?null:v2;
-          var diff=cmp1!=null&&cmp2!=null?Math.abs(cmp1-cmp2):null;
-          var diffTxt=diff===null?'':(diff===0?(isEN?'\u2713 Identical':'\u2713 Identic'):(diff<=1?(isEN?'Very close':'Foarte aproape'):(isEN?'Quite different':'Destul de diferit')));
-          var diffColor=diff===null?'':(diff===0?'#4ade80':(diff<=1?'#fbbf24':'#fb7185'));
-          var ans1Txt=intAns(v1,!!q.abcd,q.abcd||null,q.abcden||null);
-          var ans2Txt=intAns(v2,!!q.abcd,q.abcd||null,q.abcden||null);
-          qHtml+='<div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:11px 13px;border:1px solid rgba(255,255,255,0.06);margin-bottom:6px;">'+
-            '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.55);margin-bottom:7px;line-height:1.4;">'+escapeHtml(isEN?(q.en||q.t||''):(q.t||''))+'</div>'+
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">'+
-            '<div style="background:rgba(99,102,241,0.1);border-radius:8px;padding:7px 9px;border:1px solid rgba(99,102,241,0.2);">'+
-            '<div style="font-size:9px;font-weight:800;color:#818cf8;margin-bottom:2px;">'+escapeHtml(S.p1.name)+'</div>'+
-            '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.75);">'+escapeHtml(ans1Txt)+'</div></div>'+
-            '<div style="background:rgba(244,63,94,0.1);border-radius:8px;padding:7px 9px;border:1px solid rgba(244,63,94,0.2);">'+
-            '<div style="font-size:9px;font-weight:800;color:#fb7185;margin-bottom:2px;">'+escapeHtml(S.p2.name)+'</div>'+
-            '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.75);">'+escapeHtml(ans2Txt)+'</div></div>'+
-            '</div>'+
-            (diffTxt?'<div style="font-size:10px;font-weight:700;color:'+diffColor+';margin-top:6px;">'+diffTxt+'</div>':'')+
-            '</div>';
-        }
-      }
+      (res[cn].details||[]).forEach(function(det){
+        if(det.p1==null && det.p2==null) return;
+        var diff=det.diff;
+        var diffTxt=diff===null?'':(diff===0?(isEN?'\u2713 Identical':'\u2713 Identic'):(diff<=1?(isEN?'Very close':'Foarte aproape'):(isEN?'Quite different':'Destul de diferit')));
+        var diffColor=diff===null?'':(diff===0?'#4ade80':(diff<=1?'#fbbf24':'#fb7185'));
+        var ans1Txt=intAns(det.p1,det.isABCD,det.opts,det.optsEn);
+        var ans2Txt=intAns(det.p2,det.isABCD,det.opts,det.optsEn);
+        qHtml+='<div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:11px 13px;border:1px solid rgba(255,255,255,0.06);margin-bottom:6px;">'+
+          '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.55);margin-bottom:7px;line-height:1.4;">'+escapeHtml(isEN?(det.en||det.t||''):(det.t||''))+'</div>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">'+
+          '<div style="background:rgba(99,102,241,0.1);border-radius:8px;padding:7px 9px;border:1px solid rgba(99,102,241,0.2);">'+
+          '<div style="font-size:9px;font-weight:800;color:#818cf8;margin-bottom:2px;">'+escapeHtml(S.p1.name)+'</div>'+
+          '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.75);">'+escapeHtml(ans1Txt)+'</div></div>'+
+          '<div style="background:rgba(244,63,94,0.1);border-radius:8px;padding:7px 9px;border:1px solid rgba(244,63,94,0.2);">'+
+          '<div style="font-size:9px;font-weight:800;color:#fb7185;margin-bottom:2px;">'+escapeHtml(S.p2.name)+'</div>'+
+          '<div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.75);">'+escapeHtml(ans2Txt)+'</div></div>'+
+          '</div>'+
+          (diffTxt?'<div style="font-size:10px;font-weight:700;color:'+diffColor+';margin-top:6px;">'+diffTxt+'</div>':'')+
+          '</div>';
+      });
       catsHtml+=
         '<div style="margin:4px 16px;border-radius:12px;overflow:hidden;background:'+(isFirst?'rgba(255,255,255,0.05)':'rgba(255,255,255,0.03)')+';border:1px solid '+(isFirst?'rgba(255,255,255,0.1)':'rgba(255,255,255,0.06)')+'" id="'+rowId+'">'+
         '<div onclick="pzToggle(\''+rowId+'\')" style="display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent;">'+
@@ -4807,7 +4568,9 @@ function renderPaidZones(catsDiv, res, isEN, data){
             (sc2===100?(isEN?'Perfect alignment. Rare and valuable.':'Aliniere perfectă. Rar și valoros.'):sc2>=90?(isEN?'Almost perfect — keep doing what you do.':'Aproape perfect — continuați ce faceți.'):(isEN?'Solid and stable.':'Solid și stabil.'))+
             '</div></div>';
         }).join('')
-      :'<div style="color:rgba(255,255,255,0.4);font-size:12.5px;font-style:italic;">'+(isEN?'Work on this zone together — it has potential.':'Lucrați împreună la această zonă — are potențial.')+'</div>';
+      :(zoneScored.length===0
+        ? '' // FIX audit v68: zonă fără date deloc — nu afișăm mesajul "lucrați împreună, are potențial", care ar contrazice mesajul de mai jos. Vezi noDataZoneMsg.
+        :'<div style="color:rgba(255,255,255,0.4);font-size:12.5px;font-style:italic;">'+(isEN?'Work on this zone together — it has potential.':'Lucrați împreună la această zonă — are potențial.')+'</div>');
 
     var improvHtml=weakCatsZ.length>0
       ?weakCatsZ.map(function(cn){
@@ -4819,11 +4582,21 @@ function renderPaidZones(catsDiv, res, isEN, data){
             (sc2<55?(isEN?'Bigger differences here. Worth a sincere conversation, no pressure.':'Diferențe mai mari. Merită o conversație sinceră, fără presiune.'):(isEN?'Small differences. A short chat can clarify them.':'Mici diferențe. O discuție scurtă le poate clarifica.'))+
             '</div></div>';
         }).join('')
-      :'<div style="color:rgba(255,255,255,0.5);font-size:12.5px;font-style:italic;">'+(isEN?'No critical areas — you\'re well aligned.':'Nicio zonă critică — sunteți bine aliniați.')+'</div>';
+      :(zoneScored.length===0
+        ? '<div style="color:rgba(255,255,255,0.55);font-size:12.5px;line-height:1.55;">'+(isEN?'No analysis for this zone yet — there weren\'t enough shared answers to identify strengths or differences. This zone did not affect the overall score.':'Fără analiză pentru această zonă încă — nu au existat suficiente răspunsuri comune pentru a identifica puncte forte sau diferențe. Zona nu a influențat scorul general.')+'</div>'
+        :'<div style="color:rgba(255,255,255,0.5);font-size:12.5px;font-style:italic;">'+(isEN?'No critical areas — you\'re well aligned.':'Nicio zonă critică — sunteți bine aliniați.')+'</div>');
 
     var tipText=isEN?tipEN:tipRO;
 
-    var endHtml=
+    var endHtml;
+    if(zoneScored.length===0){
+      // FIX audit v68: zonă fără date deloc — zoneIntroText de mai sus explică deja
+      // situația clar. Nu mai afișăm headere "Ce merge excelent"/"Unde puteți crește"
+      // goale sau cu mesaje contradictorii, și nici sfatul generic de zonă, ca să nu
+      // pară că interpretăm un rezultat care nu există.
+      endHtml = '';
+    } else {
+      endHtml=
       '<div style="margin:14px 16px 8px;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);">'+
       '<div style="padding:15px 18px;background:rgba(21,128,61,0.04);">'+
       '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:11px;color:#4ade80;display:flex;align-items:center;gap:6px;"><span>✦</span>'+(isEN?'What works great for you':'Ce merge excelent la voi')+'</div>'+
@@ -4837,6 +4610,7 @@ function renderPaidZones(catsDiv, res, isEN, data){
       '<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:10px;color:'+zoneColor+';display:flex;align-items:center;gap:6px;"><span>💡</span>'+(isEN?'Our advice for this zone':'Sfatul nostru pentru această zonă')+'</div>'+
       '<div style="border-radius:12px;padding:15px 16px;font-size:13px;line-height:1.72;color:rgba(255,255,255,0.72);background:'+tipBg+';border:1px solid '+tipBorder+';">'+escapeHtml(tipText)+'</div>'+
       '</div></div>';
+    }
 
     var wrapper=document.createElement('div');
     wrapper.innerHTML=headerHtml+introHtml+catsHtml+endHtml;
@@ -4966,10 +4740,23 @@ function pzToggle(rowId){
 function generateReportHTML(data, isEN){
   var advSrc = isEN?ADV_EN:ADV;
   var overall = Math.round(data.overall||0);
-  var verdict = overall>=85?(isEN?'Exceptional compatibility':'Compatibilitate excepțională'):
+  // FIX #2 din audit: raportul real (email/PDF) nu mai afișează un verdict increzător
+  // calculat, fără să spună asta, din mai puțin de 3 zone. La fel ca pe ecran.
+  var cov = data.coverage || {validZones:3, totalZones:3};
+  var isPartialScore = cov.validZones>0 && cov.validZones<cov.totalZones;
+  var hasNoScore = cov.validZones===0;
+  var verdict;
+  if(hasNoScore){
+    verdict = isEN?'There\u2019s no overall score to show yet':'Nu avem încă un scor general de arătat';
+  } else {
+    var baseVerdict = overall>=85?(isEN?'Exceptional compatibility':'Compatibilitate excepțională'):
                 overall>=70?(isEN?'Very good compatibility':'Compatibilitate foarte bună'):
                 overall>=55?(isEN?'Good compatibility':'Compatibilitate bună'):
                 (isEN?'Relationship with potential':'Relație cu potențial');
+    verdict = isPartialScore
+      ? baseVerdict+' '+(isEN?'— partial score ('+cov.validZones+'/'+cov.totalZones+' zones)':'— scor parțial ('+cov.validZones+'/'+cov.totalZones+' zone)')
+      : baseVerdict;
+  }
   var dateStr = new Date().toLocaleDateString(isEN?'en-GB':'ro-RO');
   var sorted = Object.keys(data.results).sort(function(a,b){return data.results[a].order-data.results[b].order;});
 
@@ -5018,7 +4805,19 @@ function generateReportHTML(data, isEN){
         }
       };
       var zAdv = zAdvices[zAdvKey];
-      var zAdvTxt = zScore>=75?zAdv.h:zScore>=55?zAdv.m:zAdv.l;
+      // FIX: dacă zona chiar n-a avut date deloc (null, nu doar scor mic), nu alegem
+      // sfatul de "diferențe semnificative" — asta ar interpreta lipsa datelor ca
+      // fiind un rezultat slab, ceea ce e fals. Verificăm valoarea REALĂ (data.core/
+      // style/disc), nu zScore (care devine 0 prin ||0 și s-ar confunda cu scor mic real).
+      var zRealVal = d.group==='core'?data.core:d.group==='style'?data.style:data.disc;
+      var zAdvTxt;
+      if(zRealVal===null||zRealVal===undefined){
+        zAdvTxt = isEN
+          ?'This zone doesn\u2019t have a result yet — either some questions were skipped, or you each answered different ones. It doesn\u2019t say anything about you as a couple, just that there wasn\u2019t anything to compare this time.'
+          :'Zona asta nu are încă un rezultat — fie ați sărit peste întrebări, fie ați răspuns la altele decât partenerul. Nu spune nimic despre voi ca cuplu, doar că n-am avut ce compara de data asta.';
+      } else {
+        zAdvTxt = zScore>=75?zAdv.h:zScore>=55?zAdv.m:zAdv.l;
+      }
       var tip = d.group==='core'?
         (isEN?'💡 Monthly ritual: each writes one thing deeply appreciated about the other and one thing to explore together. Exchange and discuss.':'💡 Ritual lunar: fiecare scrie un lucru apreciat profund la celălalt și un lucru de explorat împreună. Schimbați și discutați.'):
         d.group==='style'?
@@ -5084,13 +4883,29 @@ function generateReportHTML(data, isEN){
     var grpCats = Object.keys(res).filter(function(cn){ return res[cn].group===grp; });
     if(grpCats.length===0) return;
 
-    var grpScore = grp==='core'?Math.round(data.core||0):grp==='style'?Math.round(data.style||0):Math.round(data.disc||0);
+    var grpRealScore = grp==='core'?data.core:grp==='style'?data.style:data.disc;
     var grpIcon = grp==='core'?'❤️':grp==='style'?'💜':'✨';
     var grpName = isEN?(grp==='core'?'Zone 1 — Relationship & Connection':grp==='style'?'Zone 2 — Sexual Style':'Zone 3 — Exploration'):
                       (grp==='core'?'Zona 1 — Relație & Conexiune':grp==='style'?'Zona 2 — Stil Sexual':'Zona 3 — Explorare');
     var grpColor = grp==='core'?'#be123c':grp==='style'?'#6d28d9':'#b45309';
     var grpBg = grp==='core'?'#fff1f2':grp==='style'?'#f5f3ff':'#fffbeb';
     var grpBorder = grp==='core'?'#fda4af':grp==='style'?'#c4b5fd':'#fcd34d';
+
+    // FIX din audit v68: dacă zona n-are DELOC date (null, nu doar scor mic), nu mai
+    // generăm toată analiza standard de mai jos (care ar produce "0%", nume de
+    // categorie goale și mesaje care se contrazic — exact bug-ul semnalat). Afișăm
+    // un bloc scurt, clar, și trecem la următoarea zonă.
+    if(grpRealScore===null||grpRealScore===undefined){
+      analysisHTML +=
+        '<div style="margin:24px 0 8px;padding:14px 16px;background:'+grpBg+';border:1.5px solid '+grpBorder+';border-radius:14px;">'+
+        '<div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:'+grpColor+';margin-bottom:10px;">'+grpIcon+' '+grpName+' — '+(isEN?'no score yet':'fără scor încă')+'</div>'+
+        '<div style="font-size:12px;line-height:1.6;color:#374151;">'+(isEN
+          ?'This zone doesn\'t have a result yet — either some questions were skipped, or you each answered different ones. It doesn\'t say anything about you as a couple, just that there wasn\'t anything to compare this time.'
+          :'Zona asta nu are încă un rezultat — fie ați sărit peste întrebări, fie ați răspuns la altele decât partenerul. Nu spune nimic despre voi ca cuplu, doar că n-am avut ce compara de data asta.')+'</div>'+
+        '</div>';
+      return;
+    }
+    var grpScore = Math.round(grpRealScore);
 
     // Puncte forte
     var strongCats = grpCats.filter(function(cn){ return !res[cn].noScore&&Math.round(res[cn].score)>=82; }).slice(0,3);
@@ -5177,14 +4992,35 @@ function generateReportHTML(data, isEN){
   catsHTML += analysisHTML;
 
   // Final advice
-  var finalAdv = overall>=85?
-    (isEN?'With '+overall+'% overall compatibility, you form a couple with remarkable alignment — emotionally and sexually. You have a rare foundation: shared values, mutual openness and a genuine desire to grow together. Your biggest allies are communication and curiosity. Where differences exist, they are not obstacles — they are invitations to conversation.':
-    'Cu '+overall+'% compatibilitate generală, formați un cuplu cu o aliniere remarcabilă — emoțional și sexual. Aveți o fundație rară: valori comune, deschidere reciprocă și dorința sinceră de a crește împreună. Cei mai mari aliați ai voștri sunt comunicarea și curiozitatea. Acolo unde există diferențe, ele nu sunt obstacole — sunt invitații la conversație.'):
+  // FIX din auditul v67: concluzia nu mai pretinde o interpretare completă
+  // ("emoțional și sexual") când nu toate cele 3 zone au avut date suficiente —
+  // aceleași variabile de acoperire (cov/isPartialScore/hasNoScore) calculate
+  // mai sus pentru verdictul din antet sunt refolosite aici.
+  var missingZoneNames=[];
+  if(data.core===null||data.core===undefined) missingZoneNames.push(isEN?'Relationship & Connection':'Relație & Conexiune');
+  if(data.style===null||data.style===undefined) missingZoneNames.push(isEN?'Sexual Style':'Stil Sexual');
+  if(data.disc===null||data.disc===undefined) missingZoneNames.push(isEN?'Exploration':'Explorare');
+  var coverageNote = (missingZoneNames.length>0)
+    ? (isEN
+        ?' (Note: '+missingZoneNames.join(', ')+' didn\'t have enough comparable answers yet, so this reading is based only on the zones that did.)'
+        :' (Notă: '+missingZoneNames.join(', ')+' nu a avut suficiente răspunsuri comparabile încă, deci această citire se bazează doar pe zonele care au avut.)')
+    : '';
+  var finalAdv;
+  if(hasNoScore){
+    finalAdv = isEN
+      ?'There isn\'t enough comparable data yet across any zone to offer a general reading — that\'s not a bad sign, it just means most questions were skipped or answered without overlap between you two.'
+      :'Nu există încă suficiente date comparabile în nicio zonă pentru o citire generală — nu e un semn rău, doar înseamnă că majoritatea întrebărilor au fost sărite sau răspunse fără suprapunere între voi.';
+  } else {
+    finalAdv = (overall>=85?
+    (isEN?'With '+overall+'% overall compatibility, you form a couple with remarkable alignment. You have a rare foundation: shared values, mutual openness and a genuine desire to grow together. Your biggest allies are communication and curiosity. Where differences exist, they are not obstacles — they are invitations to conversation.':
+    'Cu '+overall+'% compatibilitate generală, formați un cuplu cu o aliniere remarcabilă. Aveți o fundație rară: valori comune, deschidere reciprocă și dorința sinceră de a crește împreună. Cei mai mari aliați ai voștri sunt comunicarea și curiozitatea. Acolo unde există diferențe, ele nu sunt obstacole — sunt invitații la conversație.'):
     overall>=70?
     (isEN?'With '+overall+'% compatibility, you have a solid and genuine connection. There are areas of strong alignment and areas that deserve more attention and honest conversation. The foundation is there — the work is in nurturing it consistently.':
     'Cu '+overall+'% compatibilitate, aveți o conexiune solidă și autentică. Există zone de aliniere puternică și zone care merită mai multă atenție și conversație sinceră. Fundația există — munca constă în a o îngriji consecvent.'):
     (isEN?'With '+overall+'% compatibility, there are real differences that deserve honest attention. This does not mean the relationship cannot work — it means that open, courageous conversations about real needs are essential. Start small, start now.':
-    'Cu '+overall+'% compatibilitate, există diferențe reale care merită atenție sinceră. Asta nu înseamnă că relația nu poate funcționa — înseamnă că sunt esențiale conversații deschise și curajoase despre nevoi reale. Începeți mic, începeți acum.');
+    'Cu '+overall+'% compatibilitate, există diferențe reale care merită atenție sinceră. Asta nu înseamnă că relația nu poate funcționa — înseamnă că sunt esențiale conversații deschise și curajoase despre nevoi reale. Începeți mic, începeți acum.'))
+    + coverageNote;
+  }
 
   return '<!DOCTYPE html><html lang="'+(isEN?'en':'ro')+'"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Raport Compatibilitate — '+escapeHtml(S.p1.name)+' & '+escapeHtml(S.p2.name)+'</title>'+
   '<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=DM+Sans:wght@400;700;900&display=swap" rel="stylesheet"/>'+
@@ -5198,12 +5034,12 @@ function generateReportHTML(data, isEN){
   '<div style="font-family:\'Fraunces\',serif;font-size:32px;font-weight:900;color:#fff;margin-bottom:4px;">'+escapeHtml(S.p1.name)+' & '+escapeHtml(S.p2.name)+'</div>'+
   '<div style="font-size:13px;color:rgba(255,255,255,0.65);margin-bottom:28px;">'+dateStr+'</div>'+
   '<div style="width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.12);border:3px solid rgba(255,255,255,0.35);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;">'+
-  '<div style="font-family:\'Fraunces\',serif;font-size:42px;font-weight:900;color:#fff;">'+overall+'%</div></div>'+
+  '<div style="font-family:\'Fraunces\',serif;font-size:42px;font-weight:900;color:#fff;">'+(hasNoScore?'\u2014':overall+'%')+'</div></div>'+
   '<div style="font-size:15px;font-weight:700;color:rgba(255,255,255,0.9);">'+verdict+'</div></div>'+
   '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:20px 16px 0;">'+
-  '<div style="background:#fff;border-radius:14px;padding:14px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.07);"><div style="font-size:28px;font-weight:900;color:#e11d48;">'+Math.round(data.core||0)+'%</div><div style="font-size:11px;color:#6b7280;margin-top:4px;">❤️ '+(isEN?'Relationship & Connection':'Relație & Conexiune')+'</div></div>'+
-  '<div style="background:#fff;border-radius:14px;padding:14px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.07);"><div style="font-size:28px;font-weight:900;color:#9333ea;">'+(PAID?Math.round(data.style||0)+'%':(isEN?'🔒':'🔒'))+'</div><div style="font-size:11px;color:#6b7280;margin-top:4px;">💜 '+(isEN?'Sexual Style':'Stil Sexual')+'</div></div>'+
-  '<div style="background:#fff;border-radius:14px;padding:14px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.07);"><div style="font-size:28px;font-weight:900;color:#d97706;">'+(PAID?Math.round(data.disc||0)+'%':(isEN?'🔒':'🔒'))+'</div><div style="font-size:11px;color:#6b7280;margin-top:4px;">✨ '+(isEN?'Exploration':'Explorare')+'</div></div>'+
+  '<div style="background:#fff;border-radius:14px;padding:14px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.07);"><div style="font-size:28px;font-weight:900;color:#e11d48;">'+(data.core!==null&&data.core!==undefined?Math.round(data.core)+'%':'\u2014')+'</div><div style="font-size:11px;color:#6b7280;margin-top:4px;">❤️ '+(isEN?'Relationship & Connection':'Relație & Conexiune')+'</div></div>'+
+  '<div style="background:#fff;border-radius:14px;padding:14px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.07);"><div style="font-size:28px;font-weight:900;color:#9333ea;">'+(PAID?(data.style!==null&&data.style!==undefined?Math.round(data.style)+'%':'\u2014'):(isEN?'🔒':'🔒'))+'</div><div style="font-size:11px;color:#6b7280;margin-top:4px;">💜 '+(isEN?'Sexual Style':'Stil Sexual')+'</div></div>'+
+  '<div style="background:#fff;border-radius:14px;padding:14px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.07);"><div style="font-size:28px;font-weight:900;color:#d97706;">'+(PAID?(data.disc!==null&&data.disc!==undefined?Math.round(data.disc)+'%':'\u2014'):(isEN?'🔒':'🔒'))+'</div><div style="font-size:11px;color:#6b7280;margin-top:4px;">✨ '+(isEN?'Exploration':'Explorare')+'</div></div>'+
   '</div>'+
   '<div style="padding:20px 16px 0;">'+catsHTML+'</div>'+
   '<div style="margin:24px 16px 0;border-radius:20px;padding:26px 22px;background:linear-gradient(135deg,#1e1b4b,#312e81);color:#fff;">'+
@@ -5558,13 +5394,16 @@ function verifyPendingPayment(){
       if(data && data.valid){
         try{ localStorage.setItem('compat_paid','1'); }catch(e){}
         setCookie('compat_paid','1', 60*24*30);
-        try{ sessionStorage.setItem('tc_just_paid','1'); }catch(e){}
         if(!isFreshCheckout){
           // Doar revizitare link de recovery — restaurăm accesul fără să trimitem alt email.
+          // NU setăm tc_just_paid aici — recovery-ul NU e o plată proaspătă, banner-ul
+          // "Plată reușită" nu trebuie să apară (fix P0-I din audit).
           try{ localStorage.setItem('compat_recovery_code', candidateId); }catch(e){}
           window.location.reload();
           return;
         }
+        // Doar aici, pe ramura de checkout REAL și proaspăt, marcăm banner-ul de succes.
+        try{ sessionStorage.setItem('tc_just_paid','1'); }catch(e){}
         // Încarcă S din localStorage, ca să știm cui trimitem emailul de recovery
         var savedState = null;
         try{
@@ -5731,6 +5570,9 @@ function sendRecoveryEmail(email, code){
     .catch(function(err){
       console.error('[Recovery] ✗ Eroare Brevo:', err);
       try{ localStorage.setItem('compat_recovery_failed', '1'); }catch(e){}
+      throw err; // FIX din audit v67: nu mai înghițim eroarea în tăcere — apelantul
+                 // (resendRecoveryEmail) trebuie să știe REAL dacă a eșuat, ca să nu
+                 // mai anunțe "Email trimis" atunci când trimiterea chiar a eșuat.
     });
   }catch(e){ console.error('[Recovery] Eroare generală:', e); }
 }
@@ -5751,19 +5593,29 @@ function resendRecoveryEmail(){
   if(!existingCode){
     try{ localStorage.setItem('compat_recovery_code', code); }catch(e){}
   }
-  sendRecoveryEmail(S.coupleEmail, code);
+  var promise = sendRecoveryEmail(S.coupleEmail, code);
   var btn = document.getElementById('btn-resend-recovery');
   if(btn){
     var origText = btn.textContent;
     btn.textContent = LANG==='en' ? '✓ Sending...' : '✓ Se trimite...';
     btn.disabled = true;
-    setTimeout(function(){
-      btn.textContent = LANG==='en' ? '✓ Email trimis (verifică inbox + spam)' : '✓ Email trimis (verifică inbox + spam)';
-      setTimeout(function(){
-        btn.textContent = origText;
-        btn.disabled = false;
-      }, 4000);
-    }, 1500);
+    if(promise && typeof promise.then==='function'){
+      promise.then(function(){
+        // Succes real, confirmat de server — nu doar presupus după un timer.
+        btn.textContent = LANG==='en' ? '✓ Email sent (check inbox + spam)' : '✓ Email trimis (verifică inbox + spam)';
+        setTimeout(function(){ btn.textContent=origText; btn.disabled=false; }, 4000);
+      }).catch(function(){
+        // FIX din audit v67: dacă trimiterea chiar a eșuat, spunem asta, nu mai
+        // afirmăm "Email trimis" orbește după un timp fix.
+        btn.textContent = LANG==='en' ? '✗ Could not send. Try again.' : '✗ Nu s-a putut trimite. Încearcă din nou.';
+        setTimeout(function(){ btn.textContent=origText; btn.disabled=false; }, 5000);
+      });
+    } else {
+      // sendRecoveryEmail a întors null (lipsă email/code) — caz care nu ar trebui
+      // să apară aici (verificat mai sus), dar tratăm defensiv, nu presupunem succes.
+      btn.textContent = LANG==='en' ? '✗ Could not send. Try again.' : '✗ Nu s-a putut trimite. Încearcă din nou.';
+      setTimeout(function(){ btn.textContent=origText; btn.disabled=false; }, 5000);
+    }
   }
 }
 
@@ -6030,66 +5882,6 @@ function submitReview(){
       }
     })
     .catch(function(){ alert(isEN?'Connection error. Please try again.':'Eroare de conexiune. Încearcă din nou.'); });
-}
-
-
-function submitEmail(){
-  var isEN = LANG==='en';
-  var email = document.getElementById('email-input').value.trim();
-  // Proper email validation
-  var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-  if(!email || !emailRe.test(email)){
-    alert(isEN?'Please enter a valid email address.':'Introdu o adresă de email validă.');
-    return;
-  }
-  try{ localStorage.setItem('compat_email', email); }catch(e){}
-
-  var FORMSPREE_URL = 'https://formspree.io/f/mgonjaoo';
-
-  // If Formspree not configured yet, show info message
-  if(FORMSPREE_URL.indexOf('REPLACE') > -1){
-    var okEl = document.getElementById('email-ok');
-    if(okEl){ okEl.textContent = isEN ? '⚠️ Email service not yet configured.' : '⚠️ Serviciul email nu este configurat încă.'; okEl.style.display='block'; }
-    return;
-  }
-
-  var data = calcResults();
-  // Build strengths summary for email
-  var res = data.results || {};
-  var strengthsList = Object.keys(res).filter(function(k){ return res[k].score>=65; })
-    .sort(function(a,b){ return res[b].score-res[a].score; }).slice(0,3)
-    .map(function(k){ return escapeHtml(k)+': '+Math.round(res[k].score)+'%'; }).join(', ');
-  var payload = {
-    email: email,
-    couple: escapeHtml(S.p1.name) + ' & ' + escapeHtml(S.p2.name),
-    zona1_relatie: Math.round(data.core||0) + '%',
-    zona2_stil_sexual: Math.round(data.style||0) + '%',
-    zona3_explorare: Math.round(data.disc||0) + '%',
-    puncte_forte: strengthsList || 'Completati testul complet pentru puncte forte',
-    _subject: 'Rezultate testcuplu.ro \u2014 ' + escapeHtml(S.p1.name) + ' & ' + escapeHtml(S.p2.name)
-  };
-
-  var btn = document.querySelector('.email-submit-btn');
-  if(btn){ btn.disabled=true; btn.textContent = isEN?'⏳ Sending...':'⏳ Se trimite...'; }
-
-  fetch(FORMSPREE_URL, {
-    method:'POST',
-    headers:{'Content-Type':'application/json','Accept':'application/json'},
-    body: JSON.stringify(payload)
-  }).then(function(r){
-    if(r.ok){
-      var okEl = document.getElementById('email-ok');
-      if(okEl){ okEl.textContent = isEN?'✅ Sent! Check your inbox.':'✅ Trimis! Verifică inbox-ul.'; okEl.style.display='block'; }
-      var inp = document.getElementById('email-input');
-      if(inp) inp.disabled=true;
-    } else {
-      if(btn){ btn.disabled=false; btn.textContent = isEN?'Send':'Trimite'; }
-      alert(isEN?'Could not send. Please try again.':'Nu s-a putut trimite. Încearcă din nou.');
-    }
-  }).catch(function(){
-    if(btn){ btn.disabled=false; btn.textContent = isEN?'Send':'Trimite'; }
-    alert(isEN?'Connection error. Please try again.':'Eroare de conexiune. Încearcă din nou.');
-  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -6644,7 +6436,7 @@ var LEGAL_CONTENT = {
         '<li>Email cuplu (obligatoriu, pentru codul de acces)</li>' +
         '<li>Prenume Partener 1 și Partener 2 (afișate în interfață, NU sunt trimise pe server)</li>' +
         '<li>Vârsta și sexul biologic (folosite local pentru filtrarea întrebărilor)</li>' +
-        '<li>Răspunsurile la test (rămân DOAR pe device-ul vostru, în localStorage; NU sunt trimise nicăieri)</li>' +
+        '<li>Răspunsurile la test (rămân doar pe device-ul vostru, în localStorage, în mod implicit; dacă alegeți să trimiteți raportul pe email, conținutul — inclusiv întrebările și răspunsurile — este transmis către Brevo, exclusiv pentru livrarea acelui email)</li>' +
         '<li>Date opționale: statutul relației, durata, recenzia voastră</li>' +
         '</ul>' +
         '<p><strong>b) Date colectate automat:</strong></p>' +
@@ -6674,6 +6466,7 @@ var LEGAL_CONTENT = {
         '<li>Netlify Inc. (SUA, contracte SCC) — hosting</li>' +
         '<li>Cloudflare Inc. (SUA, contracte SCC) — protecție DDoS, CDN</li>' +
         '<li>Plausible Analytics (UE, Germania) — statistici anonime</li>' +
+        '<li>Formspree Inc. (SUA, contracte SCC) — trimiterea recenziilor lăsate voluntar de utilizatori (dacă alegeți să lăsați o recenzie, prenumele, textul recenziei și scorul general de compatibilitate sunt transmise prin acest serviciu)</li>' +
         '</ul>' +
         '<p><strong>NU vindem și NU partajăm datele voastre cu nicio terță parte în scop comercial.</strong></p>' +
         '<h3>5. Durată stocare</h3>' +
@@ -6696,7 +6489,7 @@ var LEGAL_CONTENT = {
         '<h3>7. Securitate</h3>' +
         '<p>Conexiunea e criptată (HTTPS). Plățile sunt procesate exclusiv prin Stripe (PCI DSS Level 1). Nu stocăm parole sau date sensibile pe serverele noastre.</p>' +
         '<h3>8. Transfer internațional de date</h3>' +
-        '<p>Unii procesatori (Stripe, Netlify, Cloudflare) sunt în SUA. Brevo este în Uniunea Europeană (Franța). Transferul se face în baza Clauzelor Contractuale Standard ale Comisiei Europene (SCC).</p>' +
+        '<p>Unii procesatori (Stripe, Netlify, Cloudflare, Formspree) sunt în SUA. Brevo este în Uniunea Europeană (Franța). Transferul se face în baza Clauzelor Contractuale Standard ale Comisiei Europene (SCC).</p>' +
         '<h3>9. Modificări ale politicii</h3>' +
         '<p>Versiunea curentă e afișată permanent. Modificările vor fi anunțate pe pagina principală cu minim 30 zile înainte de aplicare.</p>' +
         '<h3>10. Contact pentru date personale</h3>' +
@@ -6712,7 +6505,7 @@ var LEGAL_CONTENT = {
         '<li>Couple email (mandatory, for access code)</li>' +
         '<li>Partner 1 and Partner 2 first names (displayed in interface, NOT sent to server)</li>' +
         '<li>Age and biological sex (used locally to filter questions)</li>' +
-        '<li>Test answers (remain ONLY on your device, in localStorage; NOT sent anywhere)</li>' +
+        '<li>Test answers (stay only on your device, in localStorage, by default; if you choose to email the report, its content — including questions and answers — is sent to Brevo, solely to deliver that email)</li>' +
         '<li>Optional data: relationship status, duration, your review</li>' +
         '</ul>' +
         '<p><strong>b) Data collected automatically:</strong></p>' +
@@ -6742,6 +6535,7 @@ var LEGAL_CONTENT = {
         '<li>Netlify Inc. (USA, SCC contracts) — hosting</li>' +
         '<li>Cloudflare Inc. (USA, SCC contracts) — DDoS protection, CDN</li>' +
         '<li>Plausible Analytics (EU, Germany) — anonymous statistics</li>' +
+        '<li>Formspree Inc. (USA, SCC contracts) — sending voluntary reviews left by users (if you choose to leave a review, your first name, review text, and overall compatibility score are transmitted through this service)</li>' +
         '</ul>' +
         '<p><strong>We do NOT sell and do NOT share your data with any third party for commercial purposes.</strong></p>' +
         '<h3>5. Data Retention</h3>' +
@@ -6764,7 +6558,7 @@ var LEGAL_CONTENT = {
         '<h3>7. Security</h3>' +
         '<p>Connection is encrypted (HTTPS). Payments are processed exclusively through Stripe (PCI DSS Level 1). We do not store passwords or sensitive data on our servers.</p>' +
         '<h3>8. International Data Transfer</h3>' +
-        '<p>Some processors (Stripe, Netlify, Cloudflare) are in the USA. Brevo is based in the European Union (France). Transfer is based on the European Commission\'s Standard Contractual Clauses (SCC).</p>' +
+        '<p>Some processors (Stripe, Netlify, Cloudflare, Formspree) are in the USA. Brevo is based in the European Union (France). Transfer is based on the European Commission\'s Standard Contractual Clauses (SCC).</p>' +
         '<h3>9. Policy Changes</h3>' +
         '<p>The current version is permanently displayed. Changes will be announced on the main page at least 30 days before application.</p>' +
         '<h3>10. Contact for Personal Data</h3>' +
@@ -7165,7 +6959,7 @@ function renderHowFaqFooter(){
     [isEN?'What is testcuplu.ro?':'Ce este testcuplu.ro?', isEN?'testcuplu.ro opens conversations about how you match on topics rarely addressed directly. Answer questions one at a time, discover together the 25 zones of your relationship — from communication and values, to desires and fantasies — and receive a report showing where you\'re already close and where it\'s worth discussing more.':'testcuplu.ro vă deschide conversații despre cum vă potriviți pe teme rar abordate direct. Răspundeți la întrebări pe rând, descoperiți împreună cele 25 de zone ale relației \u2014 de la comunicare și valori, până la dorințe și fantezii \u2014 și primiți un raport care vă arată unde sunteți deja apropiați și unde merită să discutați mai mult.'],
     [isEN?'Who is the test for?':'Pentru cine e testul?', isEN?'For any couple who wants to discover where they match, where they don\'t, and to openly discuss what remains unsaid. Works especially well for new couples, long-term couples, parents reconnecting, curious couples wanting to explore fantasies in a safe space, or couples who struggle to communicate and need a starting point for conversations otherwise avoided.':'Pentru orice cuplu care vrea să descopere unde se potrivesc, unde nu, și să discute deschis ce a rămas nespus. Funcționează deosebit de bine pentru cupluri noi, cupluri în relații lungi, părinți care vor să se reconecteze, cupluri curioase care vor să exploreze fantezii într-un cadru sigur, sau cupluri care comunică greu și au nevoie de un punct de plecare pentru conversații altfel evitate.'],
     [isEN?'How does the test work?':'Cum funcționează testul?', isEN?'3 steps: (1) The first partner completes the entire test. (2) At the end, a transition screen appears in which the first partner explicitly confirms they have stepped away — only then can the other begin; the screen visually clears previous answers. (3) Once both are done, you receive a shared report with scores across 25 categories, visual comparisons, and discussion suggestions.':'3 pași: (1) Primul partener completează testul integral. (2) La final, apare un ecran de tranziție în care primul partener confirmă explicit că s-a îndepărtat \u2014 abia atunci celălalt poate începe; ecranul golește vizual răspunsurile anterioare. (3) După ce ambii ați terminat, primiți un raport comun cu scoruri pe 25 de categorii, comparații vizuale și sugestii de discuții.'],
-    [isEN?'How long does the test take?':'Cât durează testul?', isEN?'Approximately 20 minutes per person — 40 minutes total. You can answer one after the other (recommended) or with a break in between, however long. The first partner\'s answers are saved automatically — even if you close the page and return later, you\'ll find them where you left off (as long as you don\'t clear your browser data). On iPhone/iPad, if you leave more than a week between partners, open the test at least once to keep the answers.':'Aproximativ 20 de minute per persoană \u2014 40 de minute total. Puteți răspunde unul după altul (recomandat) sau cu o pauză între, oricât de lungă. Răspunsurile primului partener se păstrează automat \u2014 chiar dacă închideți pagina și reveniți mai târziu, le regăsiți acolo unde v-ați oprit (atâta timp cât nu ștergeți datele browserului). Pe iPhone/iPad, dacă lăsați mai mult de o săptămână între parteneri, deschideți testul măcar o dată ca să păstrați răspunsurile.'],
+    [isEN?'How long does the test take?':'Cât durează testul?', isEN?'Approximately 30-35 minutes per person — 60-70 minutes total. You can answer one after the other (recommended) or with a break in between, however long. The first partner\'s answers are saved automatically — even if you close the page and return later, you\'ll find them where you left off (as long as you don\'t clear your browser data). On iPhone/iPad, if you leave more than a week between partners, open the test at least once to keep the answers.':'Aproximativ 30-35 de minute per persoană \u2014 60-70 de minute total. Puteți răspunde unul după altul (recomandat) sau cu o pauză între, oricât de lungă. Răspunsurile primului partener se păstrează automat \u2014 chiar dacă închideți pagina și reveniți mai târziu, le regăsiți acolo unde v-ați oprit (atâta timp cât nu ștergeți datele browserului). Pe iPhone/iPad, dacă lăsați mai mult de o săptămână între parteneri, deschideți testul măcar o dată ca să păstrați răspunsurile.'],
     [isEN?'What devices does it work on?':'Pe ce dispozitive funcționează?', isEN?'On any device with a modern browser — phone, tablet, laptop, or desktop. The test is optimized for small and large screens, in Safari, Chrome, Firefox, and Edge (recent versions). Only requirement: both of you must answer on the same device (the test doesn\'t sync between devices — answers are saved only locally).':'Pe orice dispozitiv cu browser modern \u2014 telefon, tabletă, laptop sau desktop. Testul e optimizat pentru ecrane mici și mari, în Safari, Chrome, Firefox și Edge (versiuni recente). Singura cerință: răspundeți amândoi pe același dispozitiv (testul nu se sincronizează între dispozitive \u2014 răspunsurile sunt salvate doar local).'],
     [isEN?'Do we need an account?':'Avem nevoie de un cont?', isEN?'No account, no password, no registration. At the start of the test, we ask for one of your email addresses — the only identifying information we ask for. The email is used exclusively to send you the access code if you unlock Zones 2 and 3 (Premium). Without it, if you lose access after payment, we cannot resend the code. For Zone 1 (free), the email stays stored but we don\'t use it.':'Nu există cont, nu există parolă, nu există înregistrare. La începutul testului vă cerem adresa de email a unuia dintre voi \u2014 singura informație de identificare pe care o cerem. Emailul e folosit exclusiv pentru a vă trimite codul de acces dacă deblocați Zonele 2 și 3 (Premium). Fără el, dacă pierdeți accesul după plată, nu putem retrimite codul. Pentru Zona 1 (gratuită), emailul rămâne stocat dar nu îl folosim.'],
     [isEN?'What will we see in results?':'Ce vedem în rezultate?', isEN?'A shared report including: overall compatibility score, scores for the 25 categories (classified as well-aligned zones, partially aligned zones, zones to explore), visual comparison of your answers on each topic, plus conversation suggestions for the biggest gaps. The score reflects the alignment of answers across the 25 categories — a starting point, not a verdict. You view the report together on the same device.':'Un raport comun care include: scorul general de compatibilitate, scoruri pe cele 25 de categorii (clasificate ca zone bine aliniate, zone parțial aliniate, zone de explorare), comparație vizuală a răspunsurilor pe fiecare temă, plus sugestii de conversații pentru zonele cu cea mai mare distanță între voi. Scorul reflectă alinierea răspunsurilor pe cele 25 categorii \u2014 punct de plecare, nu verdict. Vedeți raportul împreună pe același dispozitiv.'],
@@ -7173,7 +6967,7 @@ function renderHowFaqFooter(){
     [isEN?'Can I access results later?':'Pot reaccesa rezultatele mai târziu?', isEN?'Yes, partly. After payment, you automatically receive an email with a link that re-opens Premium access — but the link only works correctly on the device and browser where you completed the test, because your answers are saved exclusively on that device, never on our server. On another device, the link confirms payment but can\'t display answers that aren\'t there. That\'s why we strongly recommend downloading the report as PDF right after payment — it\'s the only copy that travels with you, regardless of device.':'Da, parțial. După plată, primiți automat un email cu un link care redeschide accesul Premium — dar linkul funcționează corect doar pe dispozitivul și browserul pe care ați completat testul, pentru că răspunsurile voastre rămân salvate exclusiv pe acel dispozitiv, niciodată pe serverul nostru. Pe alt dispozitiv, linkul confirmă plata, dar nu poate afișa răspunsurile care lipsesc de acolo. De aceea vă recomandăm ferm să descărcați raportul ca PDF imediat după plată \u2014 e singura copie care vă însoțește oriunde, indiferent de dispozitiv.'],
     [isEN?'Can I get my money back?':'Pot primi banii înapoi?', isEN?'We voluntarily offer a 14-day money-back guarantee from the payment date, no explanation required. At checkout, you confirm that you unlock digital content instantly and waive the 14-day right of withdrawal per Romanian OUG 34/2014 art. 16 lit. m — however, we honor good-faith refund requests made within the first 14 days. Email contact@testcuplu.ro and we refund in full within 3-10 business days via Stripe.':'Oferim voluntar 14 zile money-back guarantee de la data plății, fără explicații necesare. La momentul plății bifați că deblocați conținut digital instant și renunțați la dreptul de retragere de 14 zile prevăzut de OUG 34/2014 art. 16 lit. m \u2014 totuși onorăm cererile de refund făcute cu bună-credință în primele 14 zile. Scrieți la contact@testcuplu.ro și vă rambursăm integral în 3-10 zile lucrătoare prin Stripe.'],
     [isEN?'Can we retake the test?':'Putem reface testul?', isEN?'Yes. On the results page there\'s a "New test" button that resets everything and starts over. Useful after a longer period, after an important conversation, or if you want to compare your evolution. Important: after reset, if you\'ve previously paid Premium, use the recovery link received by email to re-unlock Zones 2 and 3 — no additional payment.':'Da. Pe pagina rezultatelor există butonul „Test nou" care resetează totul și începe din nou. Util după o perioadă mai lungă, după o discuție importantă, sau dacă vreți să comparați evoluția. Important: după resetare, dacă ați plătit anterior Premium, folosiți linkul de recuperare primit pe email pentru a redebloca Zonele 2 și 3 \u2014 fără plată suplimentară.'],
-    [isEN?'Is our data private?':'Datele noastre sunt private?', isEN?'Yes. Your answers stay only on your device, in the browser — we don\'t save them on servers and don\'t use them for anything else. Payment is processed by Stripe in a secure environment (PCI DSS standard — used by international banks); we only see amount and transaction status, never card details. The email address is used exclusively to send the access code after Premium payment, and to resend it if requested. Nothing more.':'Da. Răspunsurile rămân doar pe dispozitivul vostru, în browser \u2014 nu le salvăm pe servere și nu le folosim pentru nimic altceva. Plata e procesată de Stripe în mediu securizat (standard PCI DSS \u2014 folosit de bănci internaționale); noi vedem doar suma și statusul tranzacției, nu vedem datele cardului. Adresa de email este folosită exclusiv pentru trimiterea codului de acces după plata Premium și pentru retrimiterea lui dacă o cereți. Atât.'],
+    [isEN?'Is our data private?':'Datele noastre sunt private?', isEN?'Your answers stay on your device, in the browser — they only reach us if you choose to email the report; in that case, its content (questions and answers) is sent to Brevo, solely for delivery. Payment is processed by Stripe, in a secure environment (PCI DSS) — we only see the amount and transaction status, never card details. The email is used exclusively for the Premium access code and resending it on request.':'Răspunsurile rămân pe dispozitivul vostru, în browser \u2014 ajung la noi doar dacă alegeți să trimiteți raportul pe email; atunci, conținutul (întrebări și răspunsuri) e transmis către Brevo, exclusiv pentru livrare. Plata e procesată de Stripe, în mediu securizat (PCI DSS) \u2014 vedem doar suma și statusul tranzacției, niciodată datele cardului. Emailul e folosit exclusiv pentru codul de acces Premium și retrimiterea lui la cerere.'],
     [isEN?'Is the test suitable for all types of couples?':'Este testul potrivit pentru toate tipurile de cupluri?', isEN?'testcuplu.ro was built starting from heterosexual-monogamous dynamics, and most questions are written from this perspective. LGBTQ+ couples, non-monogamous, or any other form are welcome — most questions (communication, values, desires, emotional intimacy) are universal and relevant to any couple. For questions that don\'t perfectly apply, we invite you to interpret them in the spirit of your own dynamic.':'testcuplu.ro a fost construit pornind de la dinamici heterosexuale-monogame, iar majoritatea întrebărilor sunt scrise din această perspectivă. Cuplurile LGBTQ+, non-monogame sau de orice altă formă sunt binevenite \u2014 cele mai multe întrebări (comunicare, valori, dorințe, intimitate emoțională) sunt universale și relevante pentru orice cuplu. Pentru întrebările care nu se potrivesc perfect, vă invităm să le interpretați în spiritul dinamicii voastre.'],
     [isEN?'What is the test based on?':'Pe ce se bazează testul?', isEN?'testcuplu.ro is an exploratory tool, not a clinical test. The 25 categories and ~255 questions are designed to open conversations on topics rarely addressed by couples. Our approach draws inspiration from erotic intelligence research (Esther Perel), sexual scripts theory (Simon & Gagnon), and modern sex therapy principles. It is not a clinical diagnosis and does not replace professional counseling (psychotherapy, sexology, couple therapy).':'testcuplu.ro este un instrument exploratoriu, nu un test clinic. Cele 25 de categorii și ~255 de întrebări au fost gândite pentru a deschide conversații pe teme rar abordate de cupluri. Abordarea se inspiră din cercetările despre inteligența erotică (Esther Perel), teoria scripturilor sexuale (Simon & Gagnon) și principiile terapiei sexuale moderne. Nu este un diagnostic clinic și nu înlocuiește consilierea profesională (psihoterapie, sexologie, terapie de cuplu).'],
     [isEN?'Do I receive a fiscal invoice?':'Primesc factură fiscală?', isEN?'Yes, upon request. Under Romanian tax law, an invoice is not automatically required for every sale to an individual consumer — it is issued only if explicitly requested. Write to contact@testcuplu.ro with your payment date and the email used, and we\'ll send you the fiscal invoice with full PFA details (tax ID, registered office), the amount (29 RON), and applicable VAT if any.':'Da, la cerere. Conform legislației fiscale române, factura nu este obligatorie automat pentru fiecare vânzare către o persoană fizică — se emite doar dacă o solicitați explicit. Scrieți-ne la contact@testcuplu.ro cu data plății și email-ul folosit, și vă trimitem factura fiscală cu datele complete ale PFA-ului (CUI, sediu social), valoarea (29 RON) și TVA-ul aplicabil dacă este cazul.']
