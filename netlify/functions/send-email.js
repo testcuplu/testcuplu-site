@@ -7,14 +7,20 @@
 // Configurare necesară în Netlify (Project configuration → Environment variables):
 //   BREVO_API_KEY = xkeysib-... (cheia reală, mutată din HTML)
 //
-// Acceptă două tipuri de cereri de la site (câmpul "type" din body):
-//   1. type: "report"   — email cu raportul complet, htmlContent gata construit de client
-//   2. type: "recovery" — email de recovery, trimis printr-un șablon Brevo (templateId + params)
+// Acceptă trei tipuri de cereri de la site (câmpul "type" din body):
+//   1. type: "report"                — email cu raportul complet, htmlContent gata construit de client
+//   2. type: "recovery"              — email de recovery, trimis printr-un șablon Brevo (templateId + params)
+//   3. type: "purchase_confirmation" — email de confirmare a achiziției Premium (v76_1),
+//                                      trimis printr-un șablon Brevo SEPARAT (templateId + params).
+//                                      Adăugat pentru conformitate OUG 34/2014 (confirmare
+//                                      contract pe suport durabil) — structura payload-ului
+//                                      e identică cu "recovery", doar templateId diferă.
 //
-// De ce ambele tipuri într-o singură funcție: raportul mare are conținut generat
-// dinamic în JS (nu poate fi un șablon fix Brevo), recovery-ul folosește șabloane
-// Brevo existente (BREVO_TEMPLATE_RECOVERY_RO/EN). Separarea payload-ului pe "type"
-// evită duplicarea configurării senderului și a gestionării erorilor.
+// De ce toate trei într-o singură funcție: raportul mare are conținut generat
+// dinamic în JS (nu poate fi un șablon fix Brevo), recovery și purchase_confirmation
+// folosesc șabloane Brevo existente, dar DIFERITE (recovery = BREVO_TEMPLATE_RECOVERY_RO/EN,
+// purchase_confirmation = BREVO_TEMPLATE_PURCHASE_RO/EN, definite în HTML). Separarea
+// payload-ului pe "type" evită duplicarea configurării senderului și a gestionării erorilor.
 
 const BREVO_SENDER_EMAIL = 'contact@testcuplu.ro';
 const BREVO_SENDER_NAME = 'testcuplu.ro';
@@ -84,10 +90,25 @@ exports.handler = async function (event) {
       to: [{ email: to }],
       params: params || {},
     };
+  } else if (type === 'purchase_confirmation') {
+    // Identic structural cu "recovery" — șablon Brevo separat (templateId diferit,
+    // configurat în HTML: BREVO_TEMPLATE_PURCHASE_RO/EN), aceiași params oricare ar fi.
+    const { templateId, params } = payload;
+    if (!templateId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ success: false, error: 'Missing templateId for purchase_confirmation email' }),
+      };
+    }
+    brevoBody = {
+      templateId: templateId,
+      to: [{ email: to }],
+      params: params || {},
+    };
   } else {
     return {
       statusCode: 400,
-      body: JSON.stringify({ success: false, error: 'Missing or invalid "type" (expected "report" or "recovery")' }),
+      body: JSON.stringify({ success: false, error: 'Missing or invalid "type" (expected "report", "recovery" or "purchase_confirmation")' }),
     };
   }
 
