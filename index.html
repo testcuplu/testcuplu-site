@@ -1,3 +1,102 @@
+<!-- VERSIUNE: v76_2 · 15 august 2026 · pornește de la v76_1, fix pe baza feedback-ului
+     tău direct: nu vrei numele personal complet expus în fiecare email de client.
+     MERCHANT_NAME a fost separată în două constante:
+       - MERCHANT_NAME_FULL (numele legal complet) — rămâne DOAR unde e strict necesar:
+         factura fiscală la cerere și modalul legal Payment&Refund, ambele deja
+         existente, neschimbate.
+       - MERCHANT_DISPLAY = 'testcuplu.ro' — asta e ce se trimite acum ca merchant_name
+         către template-ul de confirmare achiziție. Identificarea rămâne trasabilă prin
+         CUI (merchant_tax_id, neschimbat), fără să scriem numele personal în inbox-ul
+         fiecărui client.
+     Verificat: sintaxă OK, test_motor_scor.js — toate cele 4 teste trec. Nicio altă
+     modificare. -->
+
+<!-- VERSIUNE: v76_3 · 17 august 2026 · pornește de la v76_1 (v76_2 a fost intermediar,
+     absorbit deja în v76_1). Completează BREVO_TEMPLATE_PURCHASE_RO/EN cu ID-urile reale:
+       RO = 5 ("Premium Purchase Confirmation RO", activ în Brevo)
+       EN = 6 ("Premium Purchase Confirmation EN", activ în Brevo)
+     Nicio altă modificare de cod. Verificat: sintaxă OK, test_motor_scor.js — toate cele
+     4 teste trec.
+     RĂMÂNE de făcut, nu de către mine:
+       - send-email.js cu ramura purchase_confirmation e deja pe GitHub (commit confirmat
+         15 august 2026).
+       - După deploy-ul acestui fișier, o plată reală de 29 RON, ca să vedem exact ce
+         ajunge în inbox — abia atunci se poate închide punctul "confirmare pe suport
+         durabil" din auditul extern. -->
+
+<!-- VERSIUNE: v76_1 · 15 august 2026 · pornește de la v76, adaugă:
+     1) Baza legală pentru transmiterea raportului prin Brevo (RO+EN) — paragraf nou
+        în Politica de confidențialitate, imediat după cel despre consimțământul Art. 9.
+     2) sendPurchaseConfirmationEmail() — funcție NOUĂ, complet separată de
+        sendRecoveryEmail() (care rămâne neatinsă, exclusiv pentru recovery). Trimite
+        spre un template Brevo DIFERIT (BREVO_TEMPLATE_PURCHASE_RO/EN, deocamdată 0 —
+        TREBUIE completate de Nicolae după ce creează template-urile în Brevo).
+        Parametri trimiși: couple, amount, currency, purchase_date, transaction_id
+        (candidateId real din Stripe — cs_.../pi_..., nu generat), merchant_name,
+        merchant_tax_id, product_name, lang. Apelată o singură dată, doar din
+        verifyPendingPayment(), doar pe ramura de checkout proaspăt și real
+        (isFreshCheckout===true). Best-effort — nu blochează reload-ul paginii și nu
+        aruncă eroare mai departe dacă eșuează (spre deosebire de recovery, care e
+        critic pentru acces).
+     IMPORTANT — ce rămâne de făcut, nu de către mine:
+       a) Nicolae creează în Brevo două template-uri noi ("Premium Purchase
+          Confirmation RO" și "...EN") și completează ID-urile reale în cod.
+       b) Eu NU am acces la codul funcției Netlify /.netlify/functions/send-email.js —
+          nu pot confirma că acceptă type:'purchase_confirmation' și un templateId nou
+          fără modificări acolo. De verificat de Nicolae înainte de deploy, sau de
+          arătat fișierul funcției dacă apar erori.
+       c) După ce (a) și (b) sunt gata, se face o plată reală de 29 RON și se verifică
+          exact conținutul emailului primit — abia atunci se poate închide punctul
+          "confirmare pe suport durabil" din auditul extern.
+     Verificat: sintaxă OK, test_motor_scor.js — toate cele 4 teste trec. Nicio
+     modificare la scor, la fluxul de recovery existent, sau la restul UI. -->
+
+<!-- VERSIUNE: v76 · 15 august 2026 · pornește de la v75 și repară un bug real de logică
+     în fluxul de finalizare a testului, găsit printr-un audit extern și verificat direct
+     în cod înainte de a fi acceptat ca valid:
+     1) BUG: în renderQ(), când un partener termina toate categoriile, codul verifica dacă
+        celălalt partener "a terminat deja" testând doar `Object.keys(S.ansX).length > 0`
+        — adică "există orice răspuns", nu "a răspuns la toate întrebările lui". Un singur
+        răspuns (inclusiv un singur Skip) ar fi fost suficient ca acea verificare să
+        considere celălalt partener "gata" și să sară direct la rezultate, ocolind regula
+        de bază a produsului (ambii parteneri trebuie să termine înainte de rezultate).
+        FIX: verificarea folosește acum answeredCount(player)>=totalForPlayer(player) —
+        aceleași funcții deja folosite în cod pentru bara de progres — și e aliniată cu
+        verificarea corectă, deja existentă, din restoreSession() (care compară numărul
+        de răspunsuri cu numărul de întrebări filtrate per categorie, nu doar prezența lor).
+     Nicio altă modificare de logică, scor, UI sau conținut. Verificat: sintaxă OK,
+     test_motor_scor.js — toate cele 4 teste trec (date random, pairId identice→100%,
+     pairId opuse→scor scăzut, no_overlap corect). Nu am putut reconstitui cu certitudine
+     secvența exactă de click-uri care declanșa bug-ul în fluxul normal secvențial al
+     testului — dar verificarea era obiectiv greșită și inconsistentă cu restoreSession(),
+     iar fix-ul e cu risc zero.
+     2) Copy, din același audit extern:
+        - "Datele rămân pe dispozitiv" → "Răspunsurile rămân pe dispozitiv" (hero RO+EN,
+          static + array JS) — precizare, pentru că alte date (IP prin Netlify, email,
+          date Stripe) NU rămân doar local, conform propriei politici de confidențialitate.
+        - Eliminată contradicția "fără să fie necesar să justificați motivul" vs "acceptăm
+          cererile făcute cu bună-credință" din garanția de refund de 14 zile (FAQ static,
+          array fqs, modal legal Payment&Refund) — RO+EN. Exemplele au rămas ca ilustrare,
+          nu ca poartă de filtrare a cererilor.
+     3) GDPR Art. 9 — consimțământ separat pentru date privind viața sexuală:
+        - Checkbox-ul unic de la ecranul de start (vârstă + consimțământ combinate într-o
+          singură bifă) a fost despărțit în două checkbox-uri distincte: (a) confirmarea
+          vârstei de minim 18 ani; (b) consimțământul explicit pentru procesarea
+          răspunsurilor, inclusiv cele care pot dezvălui informații privind viața sexuală.
+          Ambele trebuie bifate pentru a activa butonul de start. Stil vizual identic cu
+          checkbox-ul anterior, doar structurat pe două rânduri.
+        - Politica de confidențialitate (RO+EN): titlul secțiunii 3 devine "Art. 6 și Art. 9
+          GDPR"; rândul despre răspunsurile testului precizează explicit baza legală (Art. 6
+          alin. (1) lit. a coroborat cu Art. 9 alin. (2) lit. a); paragraf nou care leagă
+          politica de checkbox-ul real din produs, menționează dreptul de retragere fără a
+          pretinde retroactivitate, și NU folosește cuvântul "exclusiv" (nu era verificat
+          că toate operațiunile pe aceste răspunsuri au aceeași bază legală).
+        Nicio modificare la scor, la logica de plată sau la restul UI.
+     4) Evidență locală a consimțământului inițial: confirmAge() salvează acum, local
+        (localStorage, compat_initial_consent), timestamp + versiune politică + limbă,
+        cu același pattern deja folosit la checkout (compat_consent). Nu se trimite
+        nimic la server — doar completează evidența locală, pentru consistență. -->
+
 <!-- VERSIUNE: v75 · 5 august 2026 · pornește de la v74, curățare cod + conformitate legală,
      fără modificări de logică de scor sau UI vizibilă:
      1) Eliminat link-ul "SOL" (către ec.europa.eu/consumers/odr) din ambele footere.
@@ -660,7 +759,8 @@ input:focus{outline:none;border-color:#db2777;}
 .v7-zone-tag.free{color:#86efac;padding:4px 10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:6px;}
 .v7-zone-tag.prem{color:#fda4af;padding:4px 10px;background:linear-gradient(135deg,rgba(244,63,94,0.08),rgba(168,85,247,0.08));border:1px solid rgba(244,63,94,0.25);border-radius:6px;}
 .v7-zone-tag.prem::before{content:'◆';margin-right:5px;font-size:8px;color:#f43f5e;vertical-align:middle;}
-.v7-consent{display:flex;align-items:flex-start;gap:14px;padding:22px 0;border-top:1px solid rgba(255,255,255,0.08);border-bottom:1px solid rgba(255,255,255,0.08);margin:48px 0 28px;cursor:pointer;}
+.v7-consent{display:flex;flex-direction:column;gap:16px;padding:22px 0;border-top:1px solid rgba(255,255,255,0.08);border-bottom:1px solid rgba(255,255,255,0.08);margin:48px 0 28px;}
+.v7-consent-row{display:flex;align-items:flex-start;gap:14px;cursor:pointer;}
 .v7-consent-box{width:20px;height:20px;border:1.5px solid rgba(255,255,255,0.3);border-radius:5px;background:rgba(255,255,255,0.05);flex-shrink:0;margin-top:1px;transition:all 0.2s;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:12px;}
 .v7-consent-box.checked{background:linear-gradient(135deg,#f43f5e,#ec4899);border-color:#f43f5e;}
 .v7-consent label{font-family:'Inter','DM Sans',sans-serif;font-size:13px;line-height:1.55;color:rgba(255,255,255,0.7);cursor:pointer;flex:1;}
@@ -839,9 +939,15 @@ input:focus{outline:none;border-color:#db2777;}
     </div>
   </section>
 
-  <div class="v7-consent v7-fade-6" onclick="toggleAgeCheck()">
-    <div class="v7-consent-box" id="age-check"></div>
-    <label id="age-checkbox-txt">Confirm că am <b>minim 18 ani</b> și sunt de acord ca răspunsurile mele, <b>inclusiv la întrebări despre viața sexuală</b>, să fie procesate conform <button class="v7-link" onclick="event.stopPropagation();openLegal('terms')" id="v7-terms-btn">Termenilor de utilizare</button> și <button class="v7-link" onclick="event.stopPropagation();openLegal('privacy')" id="v7-privacy-btn">Politicii de confidențialitate</button>.</label>
+  <div class="v7-consent v7-fade-6">
+    <div class="v7-consent-row" onclick="toggleAgeCheck()">
+      <div class="v7-consent-box" id="age-check"></div>
+      <label id="age-checkbox-txt">Confirm că am <b>minim 18 ani</b>.</label>
+    </div>
+    <div class="v7-consent-row" onclick="toggleConsentCheck()">
+      <div class="v7-consent-box" id="consent-check"></div>
+      <label id="consent-checkbox-txt">Sunt de acord ca răspunsurile mele la test, <b>inclusiv cele care pot dezvălui informații privind viața sexuală</b>, să fie prelucrate pentru calcularea și furnizarea rezultatelor testului, conform <button class="v7-link" onclick="event.stopPropagation();openLegal('terms')" id="v7-terms-btn">Termenilor de utilizare</button> și <button class="v7-link" onclick="event.stopPropagation();openLegal('privacy')" id="v7-privacy-btn">Politicii de confidențialitate</button>.</label>
+    </div>
   </div>
 
   <button class="v7-cta btn-disabled v7-fade-6" id="age-btn" onclick="confirmAge()" disabled>
@@ -850,7 +956,7 @@ input:focus{outline:none;border-color:#db2777;}
 
   <div class="v7-reassure v7-fade-6" id="v7-reassure">
     <b>Zona 1 gratuită</b><span class="v7-sep">·</span>Fără cont, doar email pentru salvare<span class="v7-sep">·</span>Premium <b>29 RON</b><br>
-    Datele rămân pe dispozitivul tău
+    Răspunsurile rămân pe dispozitivul tău
   </div>
 </main>
 
@@ -1121,7 +1227,7 @@ input:focus{outline:none;border-color:#db2777;}
       </div>
       <div class="faq-item">
         <button class="faq-q" onclick="toggleFaq(this)" id="faq-q10"><span id="faq-q10-txt">Pot primi banii înapoi?</span><span class="faq-q-arrow">▼</span></button>
-        <div class="faq-a" id="faq-a10-txt">Oferim voluntar 14 zile money-back guarantee de la data plății, fără explicații necesare. La momentul plății bifați că deblocați conținut digital instant și renunțați la dreptul de retragere de 14 zile prevăzut de OUG 34/2014 art. 16 lit. m — totuși onorăm cererile de refund făcute cu bună-credință în primele 14 zile. Scrieți la contact@testcuplu.ro și vă rambursăm integral în 3-10 zile lucrătoare prin Stripe.</div>
+        <div class="faq-a" id="faq-a10-txt">Oferim voluntar 14 zile money-back guarantee de la data plății, fără explicații necesare. La momentul plății bifați că deblocați conținut digital instant și renunțați la dreptul de retragere de 14 zile prevăzut de OUG 34/2014 art. 16 lit. m — totuși onorăm cererile de refund primite în primele 14 zile, fără să cerem un motiv. Scrieți la contact@testcuplu.ro și vă rambursăm integral în 3-10 zile lucrătoare prin Stripe.</div>
       </div>
       <div class="faq-item">
         <button class="faq-q" onclick="toggleFaq(this)" id="faq-q11"><span id="faq-q11-txt">Putem reface testul?</span><span class="faq-q-arrow">▼</span></button>
@@ -2800,10 +2906,20 @@ function renderAgeGate(){
   var ct = document.getElementById('age-checkbox-txt');
   if(ct){
     ct.innerHTML = '';
+    var ageSpan = document.createElement('span');
+    ageSpan.innerHTML = isEN
+      ? 'I confirm I am <b>at least 18 years old</b>.'
+      : 'Confirm că am <b>minim 18 ani</b>.';
+    ct.appendChild(ageSpan);
+  }
+
+  var cct = document.getElementById('consent-checkbox-txt');
+  if(cct){
+    cct.innerHTML = '';
     var span1 = document.createElement('span');
     span1.innerHTML = isEN
-      ? 'I confirm I am <b>at least 18 years old</b> and I agree that my answers, <b>including questions about sexual life</b>, are processed per the '
-      : 'Confirm că am <b>minim 18 ani</b> și sunt de acord ca răspunsurile mele, <b>inclusiv la întrebări despre viața sexuală</b>, să fie procesate conform ';
+      ? 'I agree that my test answers, <b>including those that may reveal information about my sex life</b>, are processed to calculate and deliver the test results, per the '
+      : 'Sunt de acord ca răspunsurile mele la test, <b>inclusiv cele care pot dezvălui informații privind viața sexuală</b>, să fie prelucrate pentru calcularea și furnizarea rezultatelor testului, conform ';
     var link1 = document.createElement('button');
     link1.className = 'v7-link';
     link1.textContent = isEN ? 'Terms of Use' : 'Termenilor de utilizare';
@@ -2816,11 +2932,11 @@ function renderAgeGate(){
     link2.onclick = function(e){ e.stopPropagation(); openLegal('privacy'); };
     var span3 = document.createElement('span');
     span3.textContent = '.';
-    ct.appendChild(span1);
-    ct.appendChild(link1);
-    ct.appendChild(span2);
-    ct.appendChild(link2);
-    ct.appendChild(span3);
+    cct.appendChild(span1);
+    cct.appendChild(link1);
+    cct.appendChild(span2);
+    cct.appendChild(link2);
+    cct.appendChild(span3);
   }
 
   // V7 CTA button text
@@ -2831,8 +2947,8 @@ function renderAgeGate(){
   var rs = document.getElementById('v7-reassure');
   if(rs){
     rs.innerHTML = isEN
-      ? '<b>Zone 1 free</b><span class="v7-sep">·</span>No account, just email to save<span class="v7-sep">·</span>Premium <b>29 RON</b><br>Your data stays on your device'
-      : '<b>Zona 1 gratuită</b><span class="v7-sep">·</span>Fără cont, doar email pentru salvare<span class="v7-sep">·</span>Premium <b>29 RON</b><br>Datele rămân pe dispozitivul tău';
+      ? '<b>Zone 1 free</b><span class="v7-sep">·</span>No account, just email to save<span class="v7-sep">·</span>Premium <b>29 RON</b><br>Your answers stay on your device'
+      : '<b>Zona 1 gratuită</b><span class="v7-sep">·</span>Fără cont, doar email pentru salvare<span class="v7-sep">·</span>Premium <b>29 RON</b><br>Răspunsurile rămân pe dispozitivul tău';
   }
 
   // V7 Footer
@@ -3136,18 +3252,12 @@ var S = {
 // FIX 1 \u2014 AGE GATE
 // ═══════════════════════════════════════════════════════════════
 var _ageChecked = false;
+var _consentChecked = false;
 
-function toggleAgeCheck(){
-  _ageChecked = !_ageChecked;
-  var box = document.getElementById('age-check');
-  if(box){
-    // V7 style: uses .v7-consent-box.checked class
-    box.className = 'v7-consent-box' + (_ageChecked ? ' checked' : '');
-    box.textContent = _ageChecked ? '✓' : '';
-  }
+function _updateAgeBtn(){
   var btn = document.getElementById('age-btn');
   if(btn){
-    if(_ageChecked){
+    if(_ageChecked && _consentChecked){
       btn.classList.remove('btn-disabled');
       btn.disabled = false;
     } else {
@@ -3157,9 +3267,43 @@ function toggleAgeCheck(){
   }
 }
 
+function toggleAgeCheck(){
+  _ageChecked = !_ageChecked;
+  var box = document.getElementById('age-check');
+  if(box){
+    // V7 style: uses .v7-consent-box.checked class
+    box.className = 'v7-consent-box' + (_ageChecked ? ' checked' : '');
+    box.textContent = _ageChecked ? '✓' : '';
+  }
+  _updateAgeBtn();
+}
+
+function toggleConsentCheck(){
+  _consentChecked = !_consentChecked;
+  var box = document.getElementById('consent-check');
+  if(box){
+    box.className = 'v7-consent-box' + (_consentChecked ? ' checked' : '');
+    box.textContent = _consentChecked ? '✓' : '';
+  }
+  _updateAgeBtn();
+}
+
 function confirmAge(){
-  if(!_ageChecked) return;
+  if(!_ageChecked || !_consentChecked) return;
   sessionStorage.setItem('compat_age_confirmed','1');
+  sessionStorage.setItem('compat_consent_confirmed','1');
+  // Evidență locală a consimțământului inițial (vârstă + Art. 9), pentru consistență
+  // cu compat_consent salvat la checkout — nu se trimite la server, doar local.
+  try{
+    var initialConsent = {
+      timestamp: new Date().toISOString(),
+      age_confirmed: true,
+      data_consent: true,
+      policy_version: 'v76',
+      lang: LANG
+    };
+    localStorage.setItem('compat_initial_consent', JSON.stringify(initialConsent));
+  }catch(e){}
   checkSessionRestore();
 }
 
@@ -3586,8 +3730,10 @@ function renderQ(){
   // Done?
   if(S.ci>=CATS.length){
     if(player===1){
-      // Player 1 done \u2014 check if player 2 has already completed
-      var p2done = Object.keys(S.ans2).length > 0;
+      // Player 1 done \u2014 check if player 2 has already FULLY completed
+      // (nu doar dac\u0103 exist\u0103 orice r\u0103spuns \u2014 un singur skip nu \u00eenseamn\u0103 "gata";
+      // folose\u0219te acelea\u0219i answeredCount()/totalForPlayer() ca la bara de progres)
+      var p2done = totalForPlayer(2)>0 && answeredCount(2)>=totalForPlayer(2);
       if(p2done){
         // Player 2 already answered \u2014 go straight to results
         show('s-before');
@@ -3601,8 +3747,9 @@ function renderQ(){
         show('s-transition');
       }
     } else {
-      // Player 2 done \u2014 check if player 1 has already completed
-      var p1done = Object.keys(S.ans1).length > 0;
+      // Player 2 done \u2014 check if player 1 has already FULLY completed
+      // (acela\u0219i fix ca mai sus, pentru consisten\u021b\u0103 cu restoreSession())
+      var p1done = totalForPlayer(1)>0 && answeredCount(1)>=totalForPlayer(1);
       if(p1done){
         // Player 1 already answered \u2014 go to results
         show('s-before');
@@ -5419,6 +5566,9 @@ function verifyPendingPayment(){
         try{ localStorage.setItem('compat_recovery_code', candidateId); }catch(e){}
         if(emailTarget){
           emailPromise = sendRecoveryEmail(emailTarget, candidateId);
+          // Confirmarea de achiziție (suport durabil, OUG 34/2014) — separată de
+          // recovery, best-effort, NU intră în lanțul care controlează reload-ul.
+          sendPurchaseConfirmationEmail(emailTarget, candidateId);
         } else {
           console.warn('[verify-payment] Plată confirmată dar nu există email pentru recovery');
         }
@@ -5575,6 +5725,71 @@ function sendRecoveryEmail(email, code){
                  // mai anunțe "Email trimis" atunci când trimiterea chiar a eșuat.
     });
   }catch(e){ console.error('[Recovery] Eroare generală:', e); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PURCHASE CONFIRMATION EMAIL — separat de recovery (audit extern, v76_1)
+// ═══════════════════════════════════════════════════════════════
+// Scop diferit de sendRecoveryEmail(): acesta e emailul care confirmă
+// CONTRACTUL/achiziția (suport durabil, OUG 34/2014), nu doar accesul.
+// Template Brevo separat — vezi BREVO_TEMPLATE_PURCHASE_RO/EN mai sus.
+// Apelat o singură dată, doar din verifyPendingPayment(), doar pe ramura de
+// checkout proaspăt și real (isFreshCheckout===true, plată confirmată de Stripe).
+// Nu blochează reload-ul paginii — best-effort, nu ține utilizatorul în loc dacă
+// eșuează (spre deosebire de emailul de recovery, care e critic pentru acces).
+function sendPurchaseConfirmationEmail(email, transactionId, opts){
+  if(!email || !transactionId){
+    console.warn('[PurchaseConfirm] lipsesc email sau transactionId', {email:!!email, transactionId:!!transactionId});
+    return null;
+  }
+  try{
+    var isEN = (typeof LANG !== 'undefined' && LANG === 'en');
+    var couple = (S&&S.p1&&S.p2&&S.p1.name&&S.p2.name) ? S.p1.name + ' & ' + S.p2.name : (isEN?'Your couple':'Cuplul vostru');
+    var templateId = isEN ? BREVO_TEMPLATE_PURCHASE_EN : BREVO_TEMPLATE_PURCHASE_RO;
+    // Dată formatată simplu, RO/EN — momentul confirmării client-side, imediat
+    // după ce Stripe a validat plata (verify-payment a răspuns data.valid===true).
+    var now = new Date();
+    var purchaseDate = now.toISOString();
+
+    return fetch('/.netlify/functions/send-email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        type: 'purchase_confirmation',
+        to: email,
+        templateId: templateId,
+        params: {
+          couple: couple,
+          amount: (opts && opts.amount) || PRICE_LABEL,
+          currency: 'RON',
+          purchase_date: purchaseDate,
+          transaction_id: transactionId,
+          merchant_name: MERCHANT_DISPLAY,
+          merchant_tax_id: MERCHANT_TAX_ID,
+          product_name: isEN ? PRODUCT_NAME_EN : PRODUCT_NAME_RO,
+          lang: isEN ? 'en' : 'ro'
+        }
+      })
+    })
+    .then(function(response){
+      return response.json().then(function(data){
+        if(!response.ok || !data.success){
+          throw new Error('send-email (purchase_confirmation): ' + (data && data.error ? data.error : ('status ' + response.status)));
+        }
+        return data;
+      });
+    })
+    .then(function(data){
+      try{ localStorage.setItem('compat_purchase_confirmation_sent', Date.now()+''); }catch(e){}
+      return data;
+    })
+    .catch(function(err){
+      // Best-effort: logăm, dar NU aruncăm mai departe — nu vrem ca eșecul
+      // acestui email secundar să blocheze deblocarea Premium sau reload-ul.
+      console.error('[PurchaseConfirm] ✗ Eroare Brevo:', err);
+      try{ localStorage.setItem('compat_purchase_confirmation_failed', '1'); }catch(e){}
+    });
+  }catch(e){ console.error('[PurchaseConfirm] Eroare generală:', e); return null; }
 }
 
 // Funcție publică - poate fi apelată din butonul "Retrimite email"
@@ -5913,6 +6128,24 @@ function capitalizeName(s){
 // Rămân doar ID-urile de șablon pentru recovery, care nu sunt secrete.
 var BREVO_TEMPLATE_RECOVERY_RO = 2;
 var BREVO_TEMPLATE_RECOVERY_EN = 4;
+// TODO (Nicolae): creează în Brevo două template-uri noi, separate de recovery —
+// "Premium Purchase Confirmation RO" și "...EN" — și pune aici ID-urile lor reale.
+// Până atunci, valoarea 0 e intenționat invalidă: sendPurchaseConfirmationEmail()
+// va eșua vizibil în consolă (throw din send-email.js, presupunând că acolo se
+// validează templateId), nu va trimite silențios un email gol sau greșit.
+var BREVO_TEMPLATE_PURCHASE_RO = 5;
+var BREVO_TEMPLATE_PURCHASE_EN = 6;
+// Date fixe despre comerciant și produs, pentru confirmarea de achiziție —
+// MERCHANT_NAME_FULL e numele legal complet, folosit DOAR acolo unde e strict
+// necesar (factura fiscală la cerere, modalul legal Payment&Refund — ambele deja
+// existente, neschimbate). MERCHANT_DISPLAY e ce apare în emailul automat de
+// confirmare — brand + CUI, suficient pentru identificare/trasabilitate, fără
+// să expunem numele personal complet în fiecare inbox de client.
+var MERCHANT_NAME_FULL = 'Arcălean Nicolae-Andrei-Mugurel PFA';
+var MERCHANT_DISPLAY = 'testcuplu.ro';
+var MERCHANT_TAX_ID = 'CUI 54692024';
+var PRODUCT_NAME_RO = 'Acces Premium testcuplu.ro';
+var PRODUCT_NAME_EN = 'testcuplu.ro Premium access';
 
 function openExport(){
   var isEN = LANG==='en';
@@ -6450,14 +6683,16 @@ var LEGAL_CONTENT = {
         '<li>Pagini vizitate, timp pe site, sursă de trafic</li>' +
         '<li>NU folosim cookies de tracking, NU profilăm utilizatori</li>' +
         '</ul>' +
-        '<h3>3. Scopuri și baza legală (Art. 6 GDPR)</h3>' +
+        '<h3>3. Scopuri și baza legală (Art. 6 și Art. 9 GDPR)</h3>' +
         '<ul>' +
         '<li><strong>Email</strong> — Trimiterea codului de acces după plată — <em>Executarea contractului</em></li>' +
-        '<li><strong>Răspunsuri test</strong> — Calcularea scorului local pe device — <em>Consimțământ</em></li>' +
+        '<li><strong>Răspunsuri test</strong> (inclusiv cele care pot dezvălui informații despre viața sexuală) — Calcularea scorului local pe dispozitiv — <em>Consimțământ explicit, Art. 6 alin. (1) lit. a coroborat cu Art. 9 alin. (2) lit. a GDPR</em></li>' +
         '<li><strong>Plată</strong> — Procesarea tranzacției — <em>Executarea contractului</em></li>' +
         '<li><strong>IP, browser</strong> — Securitate, prevenire fraudă — <em>Interes legitim</em></li>' +
         '<li><strong>Analytics</strong> — Îmbunătățire produs — <em>Interes legitim</em></li>' +
         '</ul>' +
+        '<p>Pentru răspunsurile care pot dezvălui informații privind viața sexuală — categorie specială de date conform Art. 9 GDPR — prelucrarea se bazează pe consimțământul dvs. explicit, exprimat prin bifarea separată a checkbox-ului dedicat înainte de începerea testului. Vă puteți retrage consimțământul oricând; retragerea nu afectează legalitatea prelucrării efectuate înainte de retragere și va împiedica continuarea testului.</p>' +
+        '<p>Dacă alegeți să primiți raportul pe email, conținutul acestuia — inclusiv răspunsurile la test — este transmis către Brevo exclusiv în acest scop. Baza legală pentru această transmitere este tot consimțământul dvs. explicit (Art. 6 alin. (1) lit. a coroborat cu Art. 9 alin. (2) lit. a GDPR), exprimat de această dată prin acțiunea voastră explicită de a solicita trimiterea raportului — separat de consimțământul inițial dat la începutul testului, care acoperă doar calculul local al scorului.</p>' +
         '<h3>4. Cu cine partajăm datele</h3>' +
         '<p>Procesatori sub-contractați (toți respectă GDPR):</p>' +
         '<ul>' +
@@ -6519,14 +6754,16 @@ var LEGAL_CONTENT = {
         '<li>Pages visited, time on site, traffic source</li>' +
         '<li>We do NOT use tracking cookies, we do NOT profile users</li>' +
         '</ul>' +
-        '<h3>3. Purposes and Legal Basis (Art. 6 GDPR)</h3>' +
+        '<h3>3. Purposes and Legal Basis (Art. 6 and Art. 9 GDPR)</h3>' +
         '<ul>' +
         '<li><strong>Email</strong> — Sending access code after payment — <em>Contract performance</em></li>' +
-        '<li><strong>Test answers</strong> — Local score calculation on device — <em>Consent</em></li>' +
+        '<li><strong>Test answers</strong> (including those that may reveal information about sexual life) — Local score calculation on the device — <em>Explicit consent, Art. 6(1)(a) in conjunction with Art. 9(2)(a) GDPR</em></li>' +
         '<li><strong>Payment</strong> — Transaction processing — <em>Contract performance</em></li>' +
         '<li><strong>IP, browser</strong> — Security, fraud prevention — <em>Legitimate interest</em></li>' +
         '<li><strong>Analytics</strong> — Product improvement — <em>Legitimate interest</em></li>' +
         '</ul>' +
+        '<p>For answers that may reveal information about sexual life — a special category of data under Art. 9 GDPR — processing relies on your explicit consent, given by separately ticking the dedicated checkbox before starting the test. You may withdraw your consent at any time; withdrawal does not affect the lawfulness of processing carried out before withdrawal and will prevent you from continuing the test.</p>' +
+        '<p>If you choose to receive the report by email, its content — including your test answers — is sent to Brevo solely for that purpose. The legal basis for this transmission is also your explicit consent (Art. 6(1)(a) in conjunction with Art. 9(2)(a) GDPR), given this time through your explicit action of requesting the report — separate from the initial consent given at the start of the test, which only covers local score calculation.</p>' +
         '<h3>4. With Whom We Share Data</h3>' +
         '<p>Sub-processors (all GDPR-compliant):</p>' +
         '<ul>' +
@@ -6586,7 +6823,7 @@ var LEGAL_CONTENT = {
         '<p>La momentul plății, bifați un acord prin care: (a) confirmați că deblocați conținutul Premium imediat după plată; și (b) renunțați expres la dreptul de retragere de 14 zile. Fără această bifă, plata nu se procesează.</p>' +
         '<h3>8. Garanție voluntară de rambursare — 14 zile</h3>' +
         '<p><strong>Independent de dreptul de retragere (la care ați renunțat la plată), testcuplu.ro oferă voluntar o garanție de rambursare de 14 zile calendaristice de la data plății, fără să fie necesar să justificați motivul.</strong></p>' +
-        '<p>Acceptăm cererile făcute cu bună-credință (am vizualizat raportul, nu corespunde așteptărilor, probleme tehnice nerezolvate, eroare la cumpărare etc).</p>' +
+        '<p>Nu trebuie să justificați motivul — exemple frecvente: ați vizualizat raportul și nu corespunde așteptărilor, probleme tehnice nerezolvate, eroare la cumpărare etc.</p>' +
         '<p><strong>Cum cereți rambursarea:</strong></p>' +
         '<ul>' +
         '<li>Email la contact@testcuplu.ro, subiect: „Cerere rambursare"</li>' +
@@ -6621,7 +6858,7 @@ var LEGAL_CONTENT = {
         '<p>At checkout, you tick a consent confirming: (a) you unlock Premium content immediately after payment; and (b) you expressly waive the 14-day right of withdrawal. Without this tick, payment is not processed.</p>' +
         '<h3>8. Voluntary Refund Guarantee — 14 Days</h3>' +
         '<p><strong>Independently of the right of withdrawal (which you waived at checkout), testcuplu.ro voluntarily offers a 14-day refund guarantee from the payment date, with no need to justify the reason.</strong></p>' +
-        '<p>We accept good-faith requests (viewed the report but does not match expectations, unresolved technical issues, purchase error, etc).</p>' +
+        '<p>No reason is required — common examples: you viewed the report and it did not match expectations, unresolved technical issues, a purchase error, etc.</p>' +
         '<p><strong>How to request a refund:</strong></p>' +
         '<ul>' +
         '<li>Email contact@testcuplu.ro, subject: "Refund request"</li>' +
@@ -6965,7 +7202,7 @@ function renderHowFaqFooter(){
     [isEN?'What will we see in results?':'Ce vedem în rezultate?', isEN?'A shared report including: overall compatibility score, scores for the 25 categories (classified as well-aligned zones, partially aligned zones, zones to explore), visual comparison of your answers on each topic, plus conversation suggestions for the biggest gaps. The score reflects the alignment of answers across the 25 categories — a starting point, not a verdict. You view the report together on the same device.':'Un raport comun care include: scorul general de compatibilitate, scoruri pe cele 25 de categorii (clasificate ca zone bine aliniate, zone parțial aliniate, zone de explorare), comparație vizuală a răspunsurilor pe fiecare temă, plus sugestii de conversații pentru zonele cu cea mai mare distanță între voi. Scorul reflectă alinierea răspunsurilor pe cele 25 categorii \u2014 punct de plecare, nu verdict. Vedeți raportul împreună pe același dispozitiv.'],
     [isEN?'Is it free?':'Este gratuit?', isEN?'Zone 1 (Relationship & Connection — 6 categories: communication, values, shared vision and emotional connection) is completely free. Zones 2 (Sexual Style — 7 categories) and 3 (Exploration — 12 categories) unlock with a one-time payment of 29 RON — no subscription, no automatic renewals. Payment is processed securely via Stripe.':'Zona 1 (Relație & Conexiune \u2014 6 categorii: comunicare, valori, viziune comună și conexiune emoțională) este complet gratuită. Zonele 2 (Stil Sexual \u2014 7 categorii) și 3 (Explorare \u2014 12 categorii) se deblochează cu o plată unică de 29 RON \u2014 fără abonament, fără reînnoiri automate. Plata e procesată securizat prin Stripe.'],
     [isEN?'Can I access results later?':'Pot reaccesa rezultatele mai târziu?', isEN?'Yes, partly. After payment, you automatically receive an email with a link that re-opens Premium access — but the link only works correctly on the device and browser where you completed the test, because your answers are saved exclusively on that device, never on our server. On another device, the link confirms payment but can\'t display answers that aren\'t there. That\'s why we strongly recommend downloading the report as PDF right after payment — it\'s the only copy that travels with you, regardless of device.':'Da, parțial. După plată, primiți automat un email cu un link care redeschide accesul Premium — dar linkul funcționează corect doar pe dispozitivul și browserul pe care ați completat testul, pentru că răspunsurile voastre rămân salvate exclusiv pe acel dispozitiv, niciodată pe serverul nostru. Pe alt dispozitiv, linkul confirmă plata, dar nu poate afișa răspunsurile care lipsesc de acolo. De aceea vă recomandăm ferm să descărcați raportul ca PDF imediat după plată \u2014 e singura copie care vă însoțește oriunde, indiferent de dispozitiv.'],
-    [isEN?'Can I get my money back?':'Pot primi banii înapoi?', isEN?'We voluntarily offer a 14-day money-back guarantee from the payment date, no explanation required. At checkout, you confirm that you unlock digital content instantly and waive the 14-day right of withdrawal per Romanian OUG 34/2014 art. 16 lit. m — however, we honor good-faith refund requests made within the first 14 days. Email contact@testcuplu.ro and we refund in full within 3-10 business days via Stripe.':'Oferim voluntar 14 zile money-back guarantee de la data plății, fără explicații necesare. La momentul plății bifați că deblocați conținut digital instant și renunțați la dreptul de retragere de 14 zile prevăzut de OUG 34/2014 art. 16 lit. m \u2014 totuși onorăm cererile de refund făcute cu bună-credință în primele 14 zile. Scrieți la contact@testcuplu.ro și vă rambursăm integral în 3-10 zile lucrătoare prin Stripe.'],
+    [isEN?'Can I get my money back?':'Pot primi banii înapoi?', isEN?'We voluntarily offer a 14-day money-back guarantee from the payment date, no explanation required. At checkout, you confirm that you unlock digital content instantly and waive the 14-day right of withdrawal per Romanian OUG 34/2014 art. 16 lit. m — however, we honor refund requests made within the first 14 days, no reason required. Email contact@testcuplu.ro and we refund in full within 3-10 business days via Stripe.':'Oferim voluntar 14 zile money-back guarantee de la data plății, fără explicații necesare. La momentul plății bifați că deblocați conținut digital instant și renunțați la dreptul de retragere de 14 zile prevăzut de OUG 34/2014 art. 16 lit. m \u2014 totuși onorăm cererile de refund primite în primele 14 zile, fără să cerem un motiv. Scrieți la contact@testcuplu.ro și vă rambursăm integral în 3-10 zile lucrătoare prin Stripe.'],
     [isEN?'Can we retake the test?':'Putem reface testul?', isEN?'Yes. On the results page there\'s a "New test" button that resets everything and starts over. Useful after a longer period, after an important conversation, or if you want to compare your evolution. Important: after reset, if you\'ve previously paid Premium, use the recovery link received by email to re-unlock Zones 2 and 3 — no additional payment.':'Da. Pe pagina rezultatelor există butonul „Test nou" care resetează totul și începe din nou. Util după o perioadă mai lungă, după o discuție importantă, sau dacă vreți să comparați evoluția. Important: după resetare, dacă ați plătit anterior Premium, folosiți linkul de recuperare primit pe email pentru a redebloca Zonele 2 și 3 \u2014 fără plată suplimentară.'],
     [isEN?'Is our data private?':'Datele noastre sunt private?', isEN?'Your answers stay on your device, in the browser — they only reach us if you choose to email the report; in that case, its content (questions and answers) is sent to Brevo, solely for delivery. Payment is processed by Stripe, in a secure environment (PCI DSS) — we only see the amount and transaction status, never card details. The email is used exclusively for the Premium access code and resending it on request.':'Răspunsurile rămân pe dispozitivul vostru, în browser \u2014 ajung la noi doar dacă alegeți să trimiteți raportul pe email; atunci, conținutul (întrebări și răspunsuri) e transmis către Brevo, exclusiv pentru livrare. Plata e procesată de Stripe, în mediu securizat (PCI DSS) \u2014 vedem doar suma și statusul tranzacției, niciodată datele cardului. Emailul e folosit exclusiv pentru codul de acces Premium și retrimiterea lui la cerere.'],
     [isEN?'Is the test suitable for all types of couples?':'Este testul potrivit pentru toate tipurile de cupluri?', isEN?'testcuplu.ro was built starting from heterosexual-monogamous dynamics, and most questions are written from this perspective. LGBTQ+ couples, non-monogamous, or any other form are welcome — most questions (communication, values, desires, emotional intimacy) are universal and relevant to any couple. For questions that don\'t perfectly apply, we invite you to interpret them in the spirit of your own dynamic.':'testcuplu.ro a fost construit pornind de la dinamici heterosexuale-monogame, iar majoritatea întrebărilor sunt scrise din această perspectivă. Cuplurile LGBTQ+, non-monogame sau de orice altă formă sunt binevenite \u2014 cele mai multe întrebări (comunicare, valori, dorințe, intimitate emoțională) sunt universale și relevante pentru orice cuplu. Pentru întrebările care nu se potrivesc perfect, vă invităm să le interpretați în spiritul dinamicii voastre.'],
